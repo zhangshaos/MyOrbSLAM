@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.1)
-project(ORB_SLAM3)
+project(MyOrbSLAM VERSION 0.0.1)
 
 IF(NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE Release)
@@ -77,7 +77,7 @@ set(CONFIG_SLAM_VOC_FILE "${PROJECT_SOURCE_DIR}/config/ORBvoc.bin")
 set(CONFIG_SLAM_SETTING_FILE "${PROJECT_SOURCE_DIR}/config/EuRoC.yaml")
 set(CONFIG_USE_VIEWER true)
 configure_file("${PROJECT_SOURCE_DIR}/config.h.in"
-               "${PROJECT_BINARY_DIR}/config.h")
+               "${PROJECT_SOURCE_DIR}/config.h")
 
 include_directories(
   ${PROJECT_SOURCE_DIR}
@@ -90,7 +90,7 @@ include_directories(
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 
 add_library(${PROJECT_NAME} SHARED
   src/System.cpp
@@ -169,6 +169,6 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 # Build examples
-# set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/examples)
-# add_executable(demo demo.cpp)
-# target_link_libraries(demo ${PROJECT_NAME})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/examples)
+add_executable(demo demo.cpp)
+target_link_libraries(demo ${PROJECT_NAME})

@@ -19,20 +19,20 @@
 
 #include <vector>
 
-#include <Eigen/Geometry>
+#include <eigen3/Eigen/Geometry>
 #include <opencv2/core.hpp>
 
 namespace slam
 {
 
-    class ISlam
+    class ISLAM
     {
     public:
-        ISlam() {}
-        ISlam(const ISlam&) = delete;
-        ISlam(ISlam&&)      = delete;
-        void operator=(const ISlam&) = delete;
-        void operator=(ISlam&&)      = delete;
+        ISLAM() {}
+        ISLAM(const ISLAM&) = delete;
+        ISLAM(ISLAM&&)      = delete;
+        void operator=(const ISLAM&) = delete;
+        void operator=(ISLAM&&)      = delete;
 
         // check whether map points' num changed. TRUE means changed, FALSE means unchanged.
         // @v_img:  input picture.
@@ -46,15 +46,17 @@ namespace slam
         // shut down the slam system.
         virtual void wait_shut_down() = 0;
 
-        virtual ~ISlam() {}
+        virtual ~ISLAM() {}
     };
 
 } // namespace slam
 
 extern "C"
 {
-    SLAM_API  slam::ISlam*  GetInstanceOfSLAM();
-    SLAM_API  void DesctroySLAM(slam::ISlam* obj);
+    SLAM_API  slam::ISLAM*  GetInstanceOfSLAM();
+    SLAM_API  void DesctroySLAM(slam::ISLAM* obj);
+    SLAM_API  Eigen::Quaternionf euler2quaternion(float yaw, float pitch, float roll);
+    SLAM_API  Eigen::Vector3f quaternion2euler(const Eigen::Quaternionf& q);
 }
 
 #endif
