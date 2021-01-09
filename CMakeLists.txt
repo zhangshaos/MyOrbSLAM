@@ -169,6 +169,6 @@ target_link_libraries(${PROJECT_NAME}
 )
 
 # Build examples
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/examples)
-add_executable(demo demo.cpp)
-target_link_libraries(demo ${PROJECT_NAME})
+#set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/examples)
+#add_executable(demo demo.cpp)
+#target_link_libraries(demo ${PROJECT_NAME})
