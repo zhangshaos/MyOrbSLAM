@@ -22,7 +22,7 @@ namespace slam {
     //   }
     // }
     // slam_sys.wait_shut_down();
-    class MSLAM : public ISlam
+    class MSLAM : public ISLAM
     {
     public:
         MSLAM(const string& path_voc_file, const string& path_setting_file, bool use_viewer = false);

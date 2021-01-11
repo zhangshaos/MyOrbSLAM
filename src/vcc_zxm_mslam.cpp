@@ -93,33 +93,12 @@ void slam::MSLAM::wait_shut_down()
 
 extern "C"
 {
-    SLAM_API  slam::ISlam* GetInstanceOfSLAM()
+    SLAM_API  slam::ISLAM* GetInstanceOfSLAM()
     {
         return new slam::MSLAM(SLAM_VOC_FILE, SLAM_SETTING_FILE, USE_VIEWER);
     }
-    SLAM_API  void DesctroySLAM(slam::ISlam* obj)
+    SLAM_API  void DesctroySLAM(slam::ISLAM* obj)
     {
         delete obj;
-    }
-    SLAM_API  Eigen::Quaternionf euler2quaternion(float yaw, float pitch, float roll)
-    {
-        float cosa = cosf(roll / 2.0f), sina = sinf(roll / 2.0f),
-        cosb = cosf(pitch / 2.0f), sinb = sinf(pitch / 2.0f),
-        cosr = cosf(yaw / 2.0f), sinr = sinf(yaw / 2.0f);
-        Eigen::Quaternionf q;
-        q.w() = cosa * cosb * cosr + sina * sinb * sinr;
-        q.x() = sina * cosb * cosr - cosa * sinb * sinr;
-        q.y() = cosa * sinb * cosr + sina * cosb * sinr;
-        q.z() = cosa * cosb * sinr - sina * sinb * cosr;
-        return q;
-    }
-    SLAM_API  Eigen::Vector3f quaternion2euler(const Eigen::Quaternionf& q)
-    {
-        float q0 = q.w(), q1 = q.x(), q2 = q.y(), q3 = q.z();
-        Eigen::Vector3f v;
-        v[0] = atan2f(2 * (q0 * q1 + q2 * q3), 1 - 2 * (q1 * q1 + q2 * q2));
-        v[1] = asinf(2 * (q0 * q2 - q1 * q3));
-        v[2] = atan2f(2 * (q0 * q3 + q1 * q2), 1 - 2 * (q2 * q2 + q3 * q3));
-        return v;
     }
 }

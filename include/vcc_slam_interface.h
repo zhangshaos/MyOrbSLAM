@@ -20,11 +20,21 @@
 #include <vector>
 
 #include <eigen3/Eigen/Geometry>
-#include <opencv2/core.hpp>
+#include <opencv2/opencv.hpp>
 
 namespace slam
 {
-
+    // Interface of a Orb-SLAM system.
+    // USAGE:
+    //   slam::ISLAM* slam = GetInstanceOfSLAM();
+    //   while (true) {
+    //     if (slam->track(img, pose)) {
+    //       auto points = slam->get_points();
+    //       // do your stuff.
+    //     }
+    //   }
+    //   slam->wait_shut_down();
+    //   DesctroySLAM(slam::ISLAM* slam);
     class ISLAM
     {
     public:
@@ -53,10 +63,10 @@ namespace slam
 
 extern "C"
 {
+    // see USAGE of class slam::ISLAM ! 
+    // alse see DesctroySLAM() for destroying the slam system.
     SLAM_API  slam::ISLAM*  GetInstanceOfSLAM();
     SLAM_API  void DesctroySLAM(slam::ISLAM* obj);
-    SLAM_API  Eigen::Quaternionf euler2quaternion(float yaw, float pitch, float roll);
-    SLAM_API  Eigen::Vector3f quaternion2euler(const Eigen::Quaternionf& q);
 }
 
 #endif
