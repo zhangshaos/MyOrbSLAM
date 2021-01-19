@@ -227,6 +227,9 @@ public:
 
     unsigned int mnOriginMapId;
 
+    // Used by tracking
+    int building_id_ = -1;
+
 protected:    
 
      // Position in absolute coordinates

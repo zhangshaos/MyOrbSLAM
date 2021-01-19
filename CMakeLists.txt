@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
+set(CMAKE_TOOLCHAIN_FILE "E:/vcpkg-for-developer/scripts/buildsystems/vcpkg.cmake")
 project(MyOrbSLAM VERSION 0.0.1)
 
 IF(NOT CMAKE_BUILD_TYPE)

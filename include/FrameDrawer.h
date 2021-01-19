@@ -53,13 +53,19 @@ public:
 
 protected:
 
-    void DrawTextInfo(cv::Mat &im, int nState, cv::Mat &imText);
+    void DrawTextInfo(int im_id, cv::Mat &im, int nState, cv::Mat &imText);
 
     // Info of the frame to be drawn
     cv::Mat mIm, mImRight;
     int N;
     vector<cv::KeyPoint> mvCurrentKeys,mvCurrentKeysRight;
-    vector<bool> mvbMap, mvbVO;
+
+    int64_t             tracking_ID_;
+    vector<cv::Rect2f>  rects_;           // for DEBUG
+    vector<int>         map_key2building_;
+    Frame               last_frame_;      // for DEBUG
+
+    vector<bool> mvbMap, mvbVO;   // mvbMap means point's observations more than 0.
     bool mbOnlyTracking;
     int mnTracked, mnTrackedVO;
     vector<cv::KeyPoint> mvIniKeys;
@@ -69,7 +75,7 @@ protected:
     Atlas* mpAtlas;
 
     std::mutex mMutex;
-    vector<pair<cv::Point2f, cv::Point2f> > mvTracks;
+    vector<pair<cv::Point2f, cv::Point2f> > mvTracks; // where this initialized?
 
     Frame mCurrentFrame;
     vector<MapPoint*> mvpLocalMap;
@@ -80,7 +86,6 @@ protected:
 
     map<long unsigned int, cv::Point2f> mmProjectPoints;
     map<long unsigned int, cv::Point2f> mmMatchedInImage;
-
 };
 
 } //namespace ORB_SLAM

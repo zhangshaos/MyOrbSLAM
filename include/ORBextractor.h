@@ -56,7 +56,10 @@ public:
     // Mask is ignored in the current implementation.
     int operator()( cv::InputArray _image, cv::InputArray _mask,
                     std::vector<cv::KeyPoint>& _keypoints,
-                    cv::OutputArray _descriptors, std::vector<int> &vLappingArea);
+                    cv::OutputArray _descriptors, std::vector<int> &vLappingArea,
+                    std::vector<cv::Rect2f> &tracking_rects = std::vector<cv::Rect2f>(),
+                    std::vector<std::vector<int>> &key2rect_idx = std::vector<std::vector<int>>());
+                    // tracking_rects refer to Frame.tracking_rects_; key2rect_idx refer to Frame.key2rect_idx_
 
     int inline GetLevels(){
         return nlevels;}
