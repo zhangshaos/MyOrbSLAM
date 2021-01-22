@@ -26,6 +26,9 @@
 #include<mutex>
 #include<chrono>
 
+#define DEBUG
+#include "E:/MyOrbSLAM/build/vcc_zxm_utiliy.h"
+
 namespace ORB_SLAM3
 {
 
@@ -385,6 +388,9 @@ void LocalMapping::CreateNewMapPoints() {
   const float ratioFactor = 1.5f * mpCurrentKeyFrame->mfScaleFactor;
 
   // Search matches with epipolar restriction and triangulate
+  // 三角化针对当前 KF 和所有相邻的 KF！
+  // 但是我们只针对第一个 KF 计算 track 操作！
+  bool is_tracked = false;
   for (size_t i = 0; i < vpNeighKFs.size(); i++) {
     if (i > 0 && CheckNewKeyFrames())// && (mnMatchesInliers>50))
       return;
@@ -419,6 +425,79 @@ void LocalMapping::CreateNewMapPoints() {
       ((!mpCurrentKeyFrame->GetMap()->GetIniertialBA2() && mpCurrentKeyFrame->GetMap()->GetIniertialBA1()) ||
        mpTracker->mState == Tracking::RECENTLY_LOST);
     matcher.SearchForTriangulation(mpCurrentKeyFrame, pKF2, F12, vMatchedIndices, false, bCoarse);
+    assert(!vMatchedIndices.empty());
+
+    // Compute rectangle match from current KF to ref KF.
+    vector<int> rect_match(mpCurrentKeyFrame->tracking_rects_.size(), -1);
+    if (!is_tracked) {
+      zxm::BestMatchGraph match;
+      for (auto& r : vMatchedIndices) {
+        if (r.first < 0 || r.second < 0) {
+          continue;
+        } // skip not matched result.
+        vector<int> rects1 = mpCurrentKeyFrame->map_key2rectIDs_[r.first],
+          rects2 = pKF2->map_key2rectIDs_[r.second];
+        for (int r1 : rects1) {
+          if (r1 < 0) {
+            continue;
+          } // skip
+          for (int r2 : rects2) {
+            if (r2 < 0) {
+              continue;
+            } // skip
+            match.AddRelation(r1, r2);
+          }
+        }
+      } // fill all matches
+      for (int r = 0; r < rect_match.size(); ++r) {
+        vector<int> candinates = match.QueryCandinates(r);
+        int sz = candinates.size();
+        if (sz == 0) {
+          rect_match[r] = -1;
+        } // cur KF rectangle r => nothing
+        else if (sz == 1) {
+          rect_match[r] = candinates.front();
+        }
+        else {
+          // r => more than 1 rectangles, need to be decreased
+          float w = mpCurrentKeyFrame->tracking_rects_[r].width,
+            h = mpCurrentKeyFrame->tracking_rects_[r].height;
+          zxm::SimiliarRectSolver sv(w, h);
+          for (int i : candinates) {
+            w = pKF2->tracking_rects_[i].width;
+            h = pKF2->tracking_rects_[i].height;
+            sv.addSimiliarRect(i, w, h);
+          }
+          rect_match[r] = sv.getMostSimiliarRectID();
+        }
+      } // compute r => r(ref KF)
+      D_PRINTF("\nKFcur:%d, KFref:%d\n", mpCurrentKeyFrame->mnId, pKF2->mnId);
+      D_BLOCK(
+        for (int r = 0; r < rect_match.size(); ++r) {
+          D_PRINTF("R%d<=>R%d\t", r, rect_match[r]);
+        }
+      );
+      
+      // Now rect_match is ready! We should compute Current KF's building ID
+      // and update the global buildings.
+      for (int r = 0; r < rect_match.size(); ++r) {
+        int ref_rect = rect_match[r];
+        if (ref_rect < 0) {
+          int id = mpAtlas->addBuilding();
+          mpCurrentKeyFrame->map_rect2buildingID_[r] = id;
+        }
+        else {
+          mpCurrentKeyFrame->map_rect2buildingID_[r] = pKF2->map_rect2buildingID_[ref_rect];
+        }
+      } // detect new region as new building!
+      D_BLOCK(
+        D_PRINTF("\nKFcur's rect => building relationship\n");
+        for (int i = 0; i < mpCurrentKeyFrame->tracking_rects_.size(); ++i) {
+          int building = mpCurrentKeyFrame->map_rect2buildingID_[i];
+          D_PRINTF("R%d<=>Build%d\t", i, building);
+        }
+      );
+    } // rect_match computed over!
 
     cv::Mat Rcw2 = pKF2->GetRotation();
     cv::Mat Rwc2 = Rcw2.t();
@@ -440,13 +519,17 @@ void LocalMapping::CreateNewMapPoints() {
       const int& idx1 = vMatchedIndices[ikp].first;
       const int& idx2 = vMatchedIndices[ikp].second;
 
+      // NLeft 和 NRight 针对双目相机而言，分别是左右两张图片的特征点数量，
+      // 由于我们采用 Monocular，所以这两项都是 -1
       const cv::KeyPoint& kp1 = (mpCurrentKeyFrame->NLeft == -1) ? mpCurrentKeyFrame->mvKeysUn[idx1]
         : (idx1 < mpCurrentKeyFrame->NLeft) ? mpCurrentKeyFrame->mvKeys[idx1]
         : mpCurrentKeyFrame->mvKeysRight[idx1 - mpCurrentKeyFrame->NLeft];
+      // mvuRight 是什么？
+      // 反正在 Monocular 下，mvuRight 都是 -1，因此 kp1_ur == -1
       const float kp1_ur = mpCurrentKeyFrame->mvuRight[idx1];
       bool bStereo1 = (!mpCurrentKeyFrame->mpCamera2 && kp1_ur >= 0);
       const bool bRight1 = (mpCurrentKeyFrame->NLeft == -1 || idx1 < mpCurrentKeyFrame->NLeft) ? false
-        : true;
+        : true; // 都是 false
 
       const cv::KeyPoint& kp2 = (pKF2->NLeft == -1) ? pKF2->mvKeysUn[idx2]
         : (idx2 < pKF2->NLeft) ? pKF2->mvKeys[idx2]
@@ -457,6 +540,7 @@ void LocalMapping::CreateNewMapPoints() {
       const bool bRight2 = (pKF2->NLeft == -1 || idx2 < pKF2->NLeft) ? false
         : true;
 
+      // 这里大概是针对 Stereo camera，我们采用 Monocular，不用管这里
       if (mpCurrentKeyFrame->mpCamera2 && pKF2->mpCamera2) {
         if (bRight1 && bRight2) {
           Rcw1 = mpCurrentKeyFrame->GetRightRotation();
@@ -525,7 +609,7 @@ void LocalMapping::CreateNewMapPoints() {
       }
 
       // Check parallax between rays
-      cv::Mat xn1 = pCamera1->unprojectMat(kp1.pt);
+      cv::Mat xn1 = pCamera1->unprojectMat(kp1.pt); // 反投影，将特征点转化为相机坐标的一条直线
       cv::Mat xn2 = pCamera2->unprojectMat(kp2.pt);
 
       cv::Mat ray1 = Rwc1 * xn1;
@@ -536,16 +620,18 @@ void LocalMapping::CreateNewMapPoints() {
       float cosParallaxStereo1 = cosParallaxStereo;
       float cosParallaxStereo2 = cosParallaxStereo;
 
+      // All skip...
       if (bStereo1)
         cosParallaxStereo1 = cos(2 * atan2(mpCurrentKeyFrame->mb / 2, mpCurrentKeyFrame->mvDepth[idx1]));
       else if (bStereo2)
         cosParallaxStereo2 = cos(2 * atan2(pKF2->mb / 2, pKF2->mvDepth[idx2]));
 
-      cosParallaxStereo = min(cosParallaxStereo1, cosParallaxStereo2);
+      cosParallaxStereo = min(cosParallaxStereo1, cosParallaxStereo2); // == cosParallaxStereo，（即不变！）
 
-      cv::Mat x3D;
+      cv::Mat x3D; // Position!!!
       if (cosParallaxRays < cosParallaxStereo && cosParallaxRays>0 && (bStereo1 || bStereo2 ||
                                                                        (cosParallaxRays < 0.9998 && mbInertial) || (cosParallaxRays < 0.9998 && !mbInertial))) {
+        // 正常运行到这里！
         // Linear Triangulation Method
         cv::Mat A(4, 4, CV_32F);
         A.row(0) = xn1.at<float>(0) * Tcw1.row(2) - Tcw1.row(0);
@@ -655,8 +741,81 @@ void LocalMapping::CreateNewMapPoints() {
       if (ratioDist * ratioFactor<ratioOctave || ratioDist>ratioOctave * ratioFactor)
         continue;
 
+      // Start to Simplify the rectangels of a key point.
+      vector<int> &idx1_rects = mpCurrentKeyFrame->map_key2rectIDs_[idx1],
+                  &idx2_rects = pKF2->map_key2rectIDs_[idx2];
+      if (!is_tracked) {
+        vector<int> better_rects1, better_rects2;
+        if (idx1_rects.size() > 1 || idx2_rects.size() > 1) {
+          for (int r1 : idx1_rects) {
+            if (r1 < 0) {
+              continue;
+            }
+            int r2 = rect_match[r1];
+            if (r2 < 0) {
+              continue;
+            }
+            auto it = std::find(idx2_rects.begin(), idx2_rects.end(), r2), itend = idx2_rects.end();
+            if (it != itend) {
+              better_rects1.emplace_back(r1);
+              better_rects2.emplace_back(r2);
+            }
+          }
+          if (!better_rects1.empty()) {
+            swap(idx1_rects, better_rects1);
+          }
+          if (!better_rects2.empty()) {
+            swap(idx2_rects, better_rects2);
+          }
+        } // basic simplify
+
+        // Further Simplifying for Current KF!
+        better_rects1.clear();
+        if (idx1_rects.size() > 1 && idx2_rects.size() == 1 && idx2_rects.front() >= 0) {
+          int id = pKF2->map_rect2buildingID_[idx2_rects.front()];
+          for (int r : idx1_rects) {
+            if (mpCurrentKeyFrame->map_rect2buildingID_[r] == id) {
+              better_rects1.emplace_back(r);
+            }
+          }
+          if (!better_rects1.empty()) {
+            swap(better_rects1, idx1_rects);
+          }
+        }
+      } // rectangle simlifying over!
+
+      // Compute the building ID of a MapPoint!
+      int building_ID = -1;
+      if (idx1_rects.size() != 1 || idx2_rects.size() != 1) {
+        continue;
+      }
+      else {
+        int r1 = idx1_rects.front(), r2 = idx2_rects.front();
+        if (r1 < 0 && r2 < 0) {
+          continue;
+        }
+        else if (r1 < 0 && r2 >= 0) {
+          building_ID = pKF2->map_rect2buildingID_[r2];
+        }
+        else if (r1 >= 0 && r2 < 0) {
+          building_ID = mpCurrentKeyFrame->map_rect2buildingID_[r1];
+        }
+        else { // r1 >= 0 && r2 >= 0
+          int id1 = mpCurrentKeyFrame->map_rect2buildingID_[r1],
+              id2 = pKF2->map_rect2buildingID_[r2];
+          if (id1 == id2) {
+            building_ID = id1;
+          }
+          else {
+            continue;
+          }
+        }
+      }
+
       // Triangulation is succesfull
       MapPoint* pMP = new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap());
+
+      pMP->building_id_ = building_ID; // No need for lock.
 
       pMP->AddObservation(mpCurrentKeyFrame, idx1);
       pMP->AddObservation(pKF2, idx2);
@@ -671,6 +830,7 @@ void LocalMapping::CreateNewMapPoints() {
       mpAtlas->AddMapPoint(pMP);
       mlpRecentAddedMapPoints.push_back(pMP);
     }
+    is_tracked = true;
   }
 }
 

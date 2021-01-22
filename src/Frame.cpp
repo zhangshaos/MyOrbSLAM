@@ -30,6 +30,10 @@
 #include <include/CameraModels/Pinhole.h>
 #include <include/CameraModels/KannalaBrandt8.h>
 
+#define DEBUG
+// Use D_PRINTF(),
+#include "E:/MyOrbSLAM/build/vcc_zxm_utiliy.h"
+
 namespace ORB_SLAM3
 {
 
@@ -277,7 +281,7 @@ namespace ORB_SLAM3
     AssignFeaturesToGrid();
   }
 
-  // monocular called this constructor.
+  // Monocular called this constructor.
   Frame::Frame(const cv::Mat& imGray, const double& timeStamp, ORBextractor* extractor, ORBVocabulary* voc, GeometricCamera* pCamera, cv::Mat& distCoef, const float& bf, const float& thDepth, const std::vector<cv::Rect2f>& tracking_rects, Frame* pPrevF, const IMU::Calib& ImuCalib)
     :mpcpi(NULL), mpORBvocabulary(voc), mpORBextractorLeft(extractor), mpORBextractorRight(static_cast<ORBextractor*>(NULL)),
     mTimeStamp(timeStamp), mK(static_cast<Pinhole*>(pCamera)->toK()), mDistCoef(distCoef.clone()), mbf(bf), mThDepth(thDepth),
@@ -286,6 +290,7 @@ namespace ORB_SLAM3
   {
     // Frame ID
     mnId = nNextId++;
+    D_PRINTF("This frame's id is %ld\n", mnId);
 
     // Scale Level Info
     mnScaleLevels = mpORBextractorLeft->GetLevels();

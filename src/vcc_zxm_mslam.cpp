@@ -55,8 +55,8 @@ void zxm::MSLAM::track(const cv::Mat& img, const Eigen::Isometry3f& pose, const 
   cv::cv2eigen(camera_pose.col(3).rowRange(0, 3), slam_translation);
 
   auto tracking_state = slam_system_->GetTrackingState();
-  size_t cur_points_count_ = slam_system_->mpAtlas->MapPointsInMap();
-  if (is_initialized_ && isCloudPointsChanged()
+  cur_points_count_   = slam_system_->mpAtlas->MapPointsInMap();
+  if (is_initialized_ && cur_points_count_ != old_points_count_
       && tracking_state == ORB_SLAM3::Tracking::eTrackingState::OK) {
     // compute distance scale from SLAM to real world.
     vec3 world_dif = world_translation - last_world_translation_,
@@ -89,17 +89,18 @@ std::vector<int> zxm::MSLAM::getBuildingID() {
 std::map<int, std::vector<Eigen::Vector3f>> zxm::MSLAM::getAllBuildings()
 {
   std::map<int, std::vector<Eigen::Vector3f>> map_buildingID2points;
-  auto points = slam_system_->mpAtlas->GetAllMapPoints();
-  for (auto pt : points) {
-    if (!pt->isBad()) {
+  auto buildings = slam_system_->mpAtlas->getAllBuildings();
+  for (auto& id_maps : buildings) {
+    int id = id_maps.first;
+    auto points = id_maps.second;
+    for (auto pt : points) {
+      assert(!pt->isBad());
       Eigen::Vector3f pos;
       cv::cv2eigen(pt->GetWorldPos(), pos);
       pos *= scale_;
       pos = init_frame_pose_ * pos;
-      int id = pt->building_id_;
-      if (id < 0) {
-        continue;
-      } // skip untracking buildings
+      assert(id == pt->building_id_);
+      assert(id >= 0);
       map_buildingID2points[id].push_back(move(pos));
     }
   }

@@ -48,117 +48,122 @@ class Pinhole;
 
 class Atlas
 {
-    friend class boost::serialization::access;
+  friend class boost::serialization::access;
 
-    template<class Archive>
-    void serialize(Archive &ar, const unsigned int version)
-    {
-        //ar.template register_type<Pinhole>();
-        //ar.template register_type<KannalaBrandt8>();
+  template<class Archive>
+  void serialize(Archive& ar, const unsigned int version) {
+    //ar.template register_type<Pinhole>();
+    //ar.template register_type<KannalaBrandt8>();
 
-        // Save/load the set of maps, the set is broken in libboost 1.58 for ubuntu 16.04
-        //ar & mspMaps;
-        ar & mvpBackupMaps;
-        ar & mvpCameras;
-        //ar & mvpBackupCamPin;
-        //ar & mvpBackupCamKan;
-        // Need to save/load the static Id from Frame, KeyFrame, MapPoint and Map
-        ar & Map::nNextId;
-        ar & Frame::nNextId;
-        ar & KeyFrame::nNextId;
-        ar & MapPoint::nNextId;
-        ar & GeometricCamera::nNextId;
-        ar & mnLastInitKFidMap;
-    }
+    // Save/load the set of maps, the set is broken in libboost 1.58 for ubuntu 16.04
+    //ar & mspMaps;
+    ar& mvpBackupMaps;
+    ar& mvpCameras;
+    //ar & mvpBackupCamPin;
+    //ar & mvpBackupCamKan;
+    // Need to save/load the static Id from Frame, KeyFrame, MapPoint and Map
+    ar& Map::nNextId;
+    ar& Frame::nNextId;
+    ar& KeyFrame::nNextId;
+    ar& MapPoint::nNextId;
+    ar& GeometricCamera::nNextId;
+    ar& mnLastInitKFidMap;
+  }
 
 public:
-    Atlas();
-    Atlas(int initKFid); // When its initialization the first map is created
-    ~Atlas();
+  Atlas();
+  Atlas(int initKFid); // When its initialization the first map is created
+  ~Atlas();
 
-    void CreateNewMap();
-    void ChangeMap(Map* pMap);
+  void CreateNewMap();
+  void ChangeMap(Map* pMap);
 
-    unsigned long int GetLastInitKFid();
+  unsigned long int GetLastInitKFid();
 
-    void SetViewer(Viewer* pViewer);
+  void SetViewer(Viewer* pViewer);
 
-    // Method for change components in the current map
-    void AddKeyFrame(KeyFrame* pKF);
-    void AddMapPoint(MapPoint* pMP);
-    //void EraseMapPoint(MapPoint* pMP);
-    //void EraseKeyFrame(KeyFrame* pKF);
+  // Method for change components in the current map
+  void AddKeyFrame(KeyFrame* pKF);
+  void AddMapPoint(MapPoint* pMP);
+  //void EraseMapPoint(MapPoint* pMP);
+  //void EraseKeyFrame(KeyFrame* pKF);
 
-    void AddCamera(GeometricCamera* pCam);
+  void AddCamera(GeometricCamera* pCam);
 
-    /* All methods without Map pointer work on current map */
-    void SetReferenceMapPoints(const std::vector<MapPoint*> &vpMPs);
-    void InformNewBigChange();
-    int GetLastBigChangeIdx();
+  /* All methods without Map pointer work on current map */
+  void SetReferenceMapPoints(const std::vector<MapPoint*>& vpMPs);
+  void InformNewBigChange();
+  int GetLastBigChangeIdx();
 
-    long unsigned int MapPointsInMap();
-    long unsigned KeyFramesInMap();
+  long unsigned int MapPointsInMap();
+  long unsigned KeyFramesInMap();
 
-    // Method for get data in current map
-    std::vector<KeyFrame*> GetAllKeyFrames();
-    std::vector<MapPoint*> GetAllMapPoints();
-    std::vector<MapPoint*> GetReferenceMapPoints();
+  // Method for get data in current map
+  std::vector<KeyFrame*> GetAllKeyFrames();
+  std::vector<MapPoint*> GetAllMapPoints();
+  std::vector<MapPoint*> GetReferenceMapPoints();
 
-    vector<Map*> GetAllMaps();
+  // Method for update state of current map.
+  // Add a global building, return new Building ID.
+  int addBuilding();
+  // Check whether the building is empty.
+  bool isBuildingEmpty();
+  std::map<int, std::vector<MapPoint*>> getAllBuildings();
 
-    int CountMaps();
+  vector<Map*> GetAllMaps();
 
-    void clearMap();
+  int CountMaps();
 
-    void clearAtlas();
+  void clearMap();
 
-    Map* GetCurrentMap();
+  void clearAtlas();
 
-    void SetMapBad(Map* pMap);
-    void RemoveBadMaps();
+  Map* GetCurrentMap();
 
-    bool isInertial();
-    void SetInertialSensor();
-    void SetImuInitialized();
-    bool isImuInitialized();
+  void SetMapBad(Map* pMap);
+  void RemoveBadMaps();
 
-    // Function for garantee the correction of serialization of this object
-    void PreSave();
-    void PostLoad();
+  bool isInertial();
+  void SetInertialSensor();
+  void SetImuInitialized();
+  bool isImuInitialized();
 
-    void SetKeyFrameDababase(KeyFrameDatabase* pKFDB);
-    KeyFrameDatabase* GetKeyFrameDatabase();
+  // Function for garantee the correction of serialization of this object
+  void PreSave();
+  void PostLoad();
 
-    void SetORBVocabulary(ORBVocabulary* pORBVoc);
-    ORBVocabulary* GetORBVocabulary();
+  void SetKeyFrameDababase(KeyFrameDatabase* pKFDB);
+  KeyFrameDatabase* GetKeyFrameDatabase();
 
-    long unsigned int GetNumLivedKF();
+  void SetORBVocabulary(ORBVocabulary* pORBVoc);
+  ORBVocabulary* GetORBVocabulary();
 
-    long unsigned int GetNumLivedMP();
+  long unsigned int GetNumLivedKF();
+
+  long unsigned int GetNumLivedMP();
 
 protected:
+  std::set<Map*> mspMaps;
+  std::set<Map*> mspBadMaps;
+  // Its necessary change the container from set to vector because libboost 1.58 and Ubuntu 16.04 have an error with this cointainer
+  std::vector<Map*> mvpBackupMaps;
+  Map* mpCurrentMap;
 
-    std::set<Map*> mspMaps;
-    std::set<Map*> mspBadMaps;
-    // Its necessary change the container from set to vector because libboost 1.58 and Ubuntu 16.04 have an error with this cointainer
-    std::vector<Map*> mvpBackupMaps;
-    Map* mpCurrentMap;
+  std::vector<GeometricCamera*> mvpCameras;
+  std::vector<KannalaBrandt8*> mvpBackupCamKan;
+  std::vector<Pinhole*> mvpBackupCamPin;
 
-    std::vector<GeometricCamera*> mvpCameras;
-    std::vector<KannalaBrandt8*> mvpBackupCamKan;
-    std::vector<Pinhole*> mvpBackupCamPin;
+  //Pinhole testCam;
+  std::mutex mMutexAtlas;
 
-    //Pinhole testCam;
-    std::mutex mMutexAtlas;
+  unsigned long int mnLastInitKFidMap;
 
-    unsigned long int mnLastInitKFidMap;
+  Viewer* mpViewer;
+  bool mHasViewer;
 
-    Viewer* mpViewer;
-    bool mHasViewer;
-
-    // Class references for the map reconstruction from the save file
-    KeyFrameDatabase* mpKeyFrameDB;
-    ORBVocabulary* mpORBVocabulary;
+  // Class references for the map reconstruction from the save file
+  KeyFrameDatabase* mpKeyFrameDB;
+  ORBVocabulary* mpORBVocabulary;
 
 
 }; // class Atlas

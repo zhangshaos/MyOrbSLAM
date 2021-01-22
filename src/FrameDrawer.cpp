@@ -404,14 +404,6 @@ void FrameDrawer::Update(Tracking* pTracker) {
 
   // Compute <map_key2building_>
   vector<vector<int>>& map_key2rects = mCurrentFrame.key2rects_idx_;
-#ifdef DEBUG
-  int keys = map_key2rects.size(),
-    tracker_keys = pTracker->mCurrentFrame.mvKeys.size(),
-    tracker_unkeys = pTracker->mCurrentFrame.mvKeysUn.size();
-  D_PRINTF("FrameDrawer:\nkeys:%d\ntracker_keys:%d\ntracker_unkeys:%d\n"
-           "These numbesr should be the same!!!\n",
-           keys, tracker_keys, tracker_unkeys);
-#endif // DEBUG
   vector<int>& map_rect2building = *(pTracker->building_IDs_);
   map_key2building_.clear();
   for (int k = 0; k < map_key2rects.size(); ++k) {
@@ -423,15 +415,6 @@ void FrameDrawer::Update(Tracking* pTracker) {
     }
     map_key2building_.emplace_back(building);
   } // <map_key2building_> filled over!
-#ifdef DEBUG
-  // Test whether keypoint belong to its building!
-  for (int k = 0; k < map_key2building_.size(); ++k) {
-    float x = mCurrentFrame.mvKeys[k].pt.x,
-          y = mCurrentFrame.mvKeys[k].pt.y;
-    int building = map_key2building_[k];
-    D_PRINTF("(%.3f, %.3f) is in building %d\n", x, y, building);
-  }
-#endif // DEBUG
 
   if (pTracker->mLastProcessedState == Tracking::NOT_INITIALIZED) {
     mvIniKeys = pTracker->mInitialFrame.mvKeys;

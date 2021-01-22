@@ -49,7 +49,6 @@ void LoopClosing::SetLocalMapper(LocalMapping* pLocalMapper) {
   mpLocalMapper = pLocalMapper;
 }
 
-
 void LoopClosing::Run() {
   mbFinished = false;
 
@@ -2162,7 +2161,6 @@ void LoopClosing::SearchAndFuse(const vector<KeyFrame*>& vConectedKFs, vector<Ma
   }
   cout << "FUSE-POSE: " << total_replaces << " MPs had been fused" << endl;
 }
-
 
 
 void LoopClosing::RequestReset() {

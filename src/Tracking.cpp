@@ -1578,11 +1578,10 @@ void Tracking::Track() {
       mTime_NewKF_Dec = std::chrono::duration_cast<std::chrono::duration<double, std::milli>>(timeEndNewKF - timeStartNewKF).count();
 #endif
 
-
-
       // Check if we need to insert a new keyframe
-      if (bNeedKF && (bOK || (mState == RECENTLY_LOST && (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO))))
+      if (bNeedKF && (bOK || (mState == RECENTLY_LOST && (mSensor == System::IMU_MONOCULAR || mSensor == System::IMU_STEREO)))) {
         CreateNewKeyFrame();
+      }
 
       // We allow points with high innovation (considererd outliers by the Huber Function)
       // pass to the new keyframe, so that bundle adjustment will finally decide
@@ -1839,13 +1838,173 @@ void Tracking::CreateInitialMapMonocular() {
   mpAtlas->AddKeyFrame(pKFini);
   mpAtlas->AddKeyFrame(pKFcur);
 
+  // 追踪两关键帧矩形的关系
+  vector<int> rect_match(pKFini->tracking_rects_.size(), -1);
+  zxm::BestMatchGraph match;
+  for (int kp1 = 0; kp1 < mvIniMatches.size(); ++kp1) {
+    int kp2 = mvIniMatches[kp1];
+    if (kp2 < 0) {
+      continue;
+    } // skip not matched result.
+    vector<int> rects1 = pKFini->map_key2rectIDs_[kp1],
+                rects2 = pKFcur->map_key2rectIDs_[kp2];
+    for (int r1 : rects1) {
+      if (r1 < 0) {
+        continue;
+      } // skip
+      for (int r2 : rects2) {
+        if (r2 < 0) {
+          continue;
+        } // skip
+        match.AddRelation(r1, r2);
+      }
+    }
+  } // fill all matches
+  for (int r = 0; r < rect_match.size(); ++r) {
+    vector<int> candinates = match.QueryCandinates(r);
+    int sz = candinates.size();
+    if (sz == 0) {
+      rect_match[r] = -1;
+    } // cur KF rectangle r => nothing
+    else if (sz == 1) {
+      rect_match[r] = candinates.front();
+    }
+    else {
+      // r => more than 1 rectangles, need to be decreased
+      float w = pKFini->tracking_rects_[r].width,
+            h = pKFini->tracking_rects_[r].height;
+      zxm::SimiliarRectSolver sv(w, h);
+      for (int i : candinates) {
+        w = pKFcur->tracking_rects_[i].width;
+        h = pKFcur->tracking_rects_[i].height;
+        sv.addSimiliarRect(i, w, h);
+      }
+      rect_match[r] = sv.getMostSimiliarRectID();
+    }
+  } // compute r => r(ref KF)
+  D_PRINTF("\nKFini:%d, KFcur:%d\n", pKFini->mnId, pKFcur->mnId);
+  D_BLOCK(
+    for (int r = 0; r < rect_match.size(); ++r) {
+      D_PRINTF("R%d<=>R%d\t", r, rect_match[r]);
+    }
+  );
+
+  // 计算两 KF 对应的 building ID
+  for (int r = 0; r < rect_match.size(); ++r) {
+    int id = mpAtlas->addBuilding();
+    pKFini->map_rect2buildingID_[r] = id;
+    int ref_rect = rect_match[r];
+    pKFcur->map_rect2buildingID_[ref_rect] = id;
+  } // detect new region as new building!
+  // pKFcur 的每个矩形都必须对应一个 building
+  for (int r = 0; r < pKFcur->tracking_rects_.size(); ++r) {
+    if (pKFcur->map_rect2buildingID_[r] < 0) {
+      pKFcur->map_rect2buildingID_[r] = mpAtlas->addBuilding();
+    } // 每个没有还未匹配的矩形，各新建一个 building
+  }
+  D_BLOCK(
+    D_PRINTF("\nKFini's rect => building relationship\n");
+    for (int i = 0; i < pKFini->tracking_rects_.size(); ++i) {
+      int building = pKFini->map_rect2buildingID_[i];
+      D_PRINTF("R%d<=>Build%d\t", i, building);
+    }
+    D_PRINTF("\nKFcur's rect => building relationship\n");
+    for (int i = 0; i < pKFcur->tracking_rects_.size(); ++i) {
+      int building = pKFcur->map_rect2buildingID_[i];
+      D_PRINTF("R%d<=>Build%d\t", i, building);
+    }
+  );
+
   for (size_t i = 0; i < mvIniMatches.size(); i++) {
     if (mvIniMatches[i] < 0)
       continue;
 
+    // 简化特征点对应的矩形区域
+    vector<int> &idx1_rects = pKFini->map_key2rectIDs_[i],
+                &idx2_rects = pKFcur->map_key2rectIDs_[mvIniMatches[i]];
+    if (idx1_rects.size() > 1 || idx2_rects.size() > 1) {
+      vector<int> better_rects1, better_rects2;
+      for (int r1 : idx1_rects) {
+        if (r1 < 0) {
+          continue;
+        }
+        int r2 = rect_match[r1];
+        if (r2 < 0) {
+          continue;
+        }
+        auto it = std::find(idx2_rects.begin(), idx2_rects.end(), r2), itend = idx2_rects.end();
+        if (it != itend) {
+          better_rects1.emplace_back(r1);
+          better_rects2.emplace_back(r2);
+        }
+      }
+      if (!better_rects1.empty()) {
+        swap(idx1_rects, better_rects1);
+      }
+      if (!better_rects2.empty()) {
+        swap(idx2_rects, better_rects2);
+      }
+    } // basic simplify
+    // Further Simplifying for Current KF!
+    if (idx1_rects.size() > 1) {
+      int better_r = -1;
+      float max_h = 0.f;
+      for (int r : idx1_rects) {
+        float h = pKFini->tracking_rects_[r].y + pKFini->tracking_rects_[r].height;
+        if (h > max_h) {
+          better_r = r;
+          max_h = h;
+        }
+      }
+      if (better_r >= 0) {
+        idx1_rects.clear();
+        idx1_rects.emplace_back(better_r);
+      }
+    }
+    if (idx2_rects.size() > 1) {
+      int better_r = -1;
+      float max_h = 0.f;
+      for (int r : idx2_rects) {
+        float h = pKFcur->tracking_rects_[r].y + pKFcur->tracking_rects_[r].height;
+        if (h > max_h) {
+          better_r = r;
+          max_h = h;
+        }
+      }
+      if (better_r >= 0) {
+        idx2_rects.clear();
+        idx2_rects.emplace_back(better_r);
+      }
+    }
+
+    // 确定 MP 的 building ID
+    int building_ID = -1;
+    int r1 = idx1_rects.front(), r2 = idx2_rects.front();
+    if (r1 < 0 && r2 < 0) {
+      continue;
+    }
+    else if (r1 < 0 && r2 >= 0) {
+      building_ID = pKFcur->map_rect2buildingID_[r2];
+    }
+    else if (r1 >= 0 && r2 < 0) {
+      building_ID = pKFini->map_rect2buildingID_[r1];
+    }
+    else { // r1 >= 0 && r2 >= 0
+      int id1 = pKFini->map_rect2buildingID_[r1],
+          id2 = pKFcur->map_rect2buildingID_[r2];
+      if (id1 == id2) {
+        building_ID = id1;
+      }
+      else {
+        continue;
+      }
+    }
+
     //Create MapPoint.
     cv::Mat worldPos(mvIniP3D[i]);
     MapPoint* pMP = new MapPoint(worldPos, pKFcur, mpAtlas->GetCurrentMap());
+
+    pMP->building_id_ = building_ID;
 
     pKFini->AddMapPoint(pMP, i);
     pKFcur->AddMapPoint(pMP, mvIniMatches[i]);
@@ -2450,7 +2609,7 @@ void Tracking::CreateNewKeyFrame() {
 
   pKF->SetNewBias(mCurrentFrame.mImuBias);
   mpReferenceKF = pKF;
-  mCurrentFrame.mpReferenceKF = pKF;
+  mCurrentFrame.mpReferenceKF = pKF; // Refer to youself but a keyframe-self!
 
   if (mpLastKeyFrame) {
     pKF->mPrevKF = mpLastKeyFrame;
@@ -3483,14 +3642,6 @@ void Tracking::track_rects() {
     }
     rect_matches_cur2last_[i] = best;
   }
-#ifdef DEBUG
-  D_PRINTF("tracking ID: %lld\n", tracking_ID_);
-  int i = 0;
-  for_each(rect_matches_cur2last_.begin(),
-           rect_matches_cur2last_.end(),
-           [&i](int& r) { D_PRINTF("cur_rect->last_rect: %d->%d\n", i++, r); }
-  );
-#endif // DEBUG
 
   // Set building ID of the rectangles.
   assert(building_IDs_ != nullptr);
@@ -3508,14 +3659,6 @@ void Tracking::track_rects() {
     }
     *building_IDs_ = new_building_IDs;
   }
-#ifdef DEBUG
-  D_PRINTF("tracking ID: %lld\n", tracking_ID_);
-  i = 0;
-  for_each(building_IDs_->begin(),
-           building_IDs_->end(),
-           [&i](int& r) { D_PRINTF("cur_rect=>building: %d=>%d\n", i++, r); }
-  );
-#endif // DEBUG
 }
 
 } //namespace ORB_SLAM
