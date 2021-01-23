@@ -61,7 +61,7 @@
 #include "ORBextractor.h"
 
 #define DEBUG
-#include "E:/MyOrbSLAM/build/vcc_zxm_utiliy.h"
+#include "vcc_zxm_utility.h"
 
 
 using namespace cv;

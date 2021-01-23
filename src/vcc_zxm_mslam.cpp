@@ -4,7 +4,7 @@
 #include "vcc_zxm_mslam.h"
 
 #define DEBUG // use debug mode
-#include "E:/MyOrbSLAM/build/vcc_zxm_utiliy.h"
+#include "vcc_zxm_utility.h"
 
 // use cv::cv2eigen(). convert cv::Mat to Eigen.
 #include <opencv2/core/eigen.hpp>
