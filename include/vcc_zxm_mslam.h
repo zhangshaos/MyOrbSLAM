@@ -10,16 +10,6 @@
 namespace zxm
 {
 
-// Tracking buildings.
-struct Building
-{
-  std::vector<Eigen::Vector3f> points;
-  Eigen::Vector3f center;
-  int id = -1;
-  Building()
-  { }
-};
-
 // See ISLAM Usage !
 class MSLAM : public ISLAM
 {
@@ -44,7 +34,7 @@ public:
 
   // Get all buildings' clould points.
   // Return map <building id>-<building cloud points>.
-  virtual std::map<int, std::vector<Eigen::Vector3f>> getAllBuildings()override;
+  virtual std::map<int, std::vector<Eigen::Vector3f>> getAllBuildings(bool use_real_coordinate = true)override;
 
   // Shut down the slam system.
   virtual void shutDown()override;

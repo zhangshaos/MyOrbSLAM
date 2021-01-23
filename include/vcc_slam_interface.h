@@ -29,7 +29,6 @@ namespace zxm
 //    zxm::ISLAM* slam = GetInstanceOfSLAM();
 //    while (true) {
 //      slam->track(...);
-//      auto building_ids = getBuildingID();
 //      if (isCloudPointsChanged()) {
 //        auto all_building_pts = getAllBuildings();
 //        for (id : building_ids) {
@@ -66,7 +65,9 @@ public:
 
   // Get all buildings' clould points.
   // Return map <building id>-<building cloud points>.
-  virtual std::map<int, std::vector<Eigen::Vector3f>> getAllBuildings() = 0;
+  // If <use_real_coordinate> is true(default), the points coordinate will be convert to
+  // real world, else use the SLAM coordinate.
+  virtual std::map<int, std::vector<Eigen::Vector3f>> getAllBuildings(bool use_real_coordinate = true) = 0;
 
   // Shut down the slam system.
   virtual void shutDown() = 0;

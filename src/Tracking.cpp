@@ -1783,6 +1783,7 @@ void Tracking::MonocularInitialization() {
     // Find correspondences
     ORBmatcher matcher(0.9, true);
     int nmatches = matcher.SearchForInitialization(mInitialFrame, mCurrentFrame, mvbPrevMatched, mvIniMatches, 100);
+    D_PRINTF("\nKEYPOINT MATCH(%d, %d): %d\n", mInitialFrame.mnId, mCurrentFrame.mnId, nmatches);
 
     // Check if there are enough correspondences
     if (nmatches < 100) {
@@ -3611,9 +3612,10 @@ void Tracking::track_rects() {
   unique_lock<mutex> lock(mMutexTracks);
 
   // compute matches of keypoint.
-  ORBmatcher match;
-  match.SearchForMatches(mCurrentFrame, mLastFrame, key_matches_cur2last_);
+  ORBmatcher match(0.9f);
+  match.SearchForMatches(mCurrentFrame, mLastFrame, key_matches_cur2last_, 100);
 
+  int matched_count = 0;
   // compute matches of rectangles.
   zxm::BestMatchGraph rects_match;
   for (int kp1 = 0, kpend = key_matches_cur2last_.size(); kp1 < kpend; ++kp1) {
@@ -3621,6 +3623,7 @@ void Tracking::track_rects() {
     if (kp2 < 0) {
       continue;
     }
+    ++matched_count;
     vector<int> kp1_areas = mCurrentFrame.key2rects_idx_.at(kp1),
       kp2_areas = mLastFrame.key2rects_idx_.at(kp2);
     // compute area relationship
@@ -3630,6 +3633,7 @@ void Tracking::track_rects() {
       }
     } // add areas-relationship
   } // all keypoint finished
+  D_PRINTF("TRACKING(%d, %d) KEYPOINT MATCH: %d\n", mCurrentFrame.mnId, mLastFrame.mnId, matched_count);
 
   // FIX bugs when a rectangle match more one other rectangles.
   rect_matches_cur2last_.resize(tracking_rects_.size(), -1);
@@ -3655,7 +3659,14 @@ void Tracking::track_rects() {
     vector<int> new_building_IDs(rect_matches_cur2last_.size(), -1);
     for (int cur_id = 0; cur_id < rect_matches_cur2last_.size(); ++cur_id) {
       int last_id = rect_matches_cur2last_[cur_id];
-      new_building_IDs[cur_id] = building_IDs_->at(last_id);
+      if (last_id < 0) {
+        // create a new building
+        // FIXME, this is a BUG!!!
+        new_building_IDs[cur_id] = building_IDs_->size();
+      }
+      else {
+        new_building_IDs[cur_id] = building_IDs_->at(last_id);
+      }
     }
     *building_IDs_ = new_building_IDs;
   }

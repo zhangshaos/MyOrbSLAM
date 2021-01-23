@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
-set(CMAKE_TOOLCHAIN_FILE "E:/vcpkg-for-developer/scripts/buildsystems/vcpkg.cmake")
-project(MyOrbSLAM VERSION 0.0.1)
+#set(CMAKE_TOOLCHAIN_FILE "E:/vcpkg-for-developer/scripts/buildsystems/vcpkg.cmake")
+project(MyOrbSLAM VERSION 0.0.3)
 
 IF(NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE Release)
@@ -151,7 +151,9 @@ add_library(${PROJECT_NAME} SHARED
   src/TwoViewReconstruction.cpp
   include/vcc_zxm_mslam.h
   include/vcc_slam_interface.h
+  include/vcc_zxm_utility.h
   src/vcc_zxm_mslam.cpp
+  src/vcc_zxm_utility.cpp
   config.h
 )
 

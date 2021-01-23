@@ -86,7 +86,7 @@ std::vector<int> zxm::MSLAM::getBuildingID() {
   return building_IDs_;
 }
 
-std::map<int, std::vector<Eigen::Vector3f>> zxm::MSLAM::getAllBuildings()
+std::map<int, std::vector<Eigen::Vector3f>> zxm::MSLAM::getAllBuildings(bool use_real_coordinate)
 {
   std::map<int, std::vector<Eigen::Vector3f>> map_buildingID2points;
   auto buildings = slam_system_->mpAtlas->getAllBuildings();
@@ -97,8 +97,10 @@ std::map<int, std::vector<Eigen::Vector3f>> zxm::MSLAM::getAllBuildings()
       assert(!pt->isBad());
       Eigen::Vector3f pos;
       cv::cv2eigen(pt->GetWorldPos(), pos);
-      pos *= scale_;
-      pos = init_frame_pose_ * pos;
+      if (use_real_coordinate) {
+        pos *= scale_;
+        pos = init_frame_pose_ * pos;
+      }
       assert(id == pt->building_id_);
       assert(id >= 0);
       map_buildingID2points[id].push_back(move(pos));

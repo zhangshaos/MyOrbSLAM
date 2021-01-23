@@ -426,6 +426,7 @@ void LocalMapping::CreateNewMapPoints() {
        mpTracker->mState == Tracking::RECENTLY_LOST);
     matcher.SearchForTriangulation(mpCurrentKeyFrame, pKF2, F12, vMatchedIndices, false, bCoarse);
     assert(!vMatchedIndices.empty());
+    
 
     // Compute rectangle match from current KF to ref KF.
     vector<int> rect_match(mpCurrentKeyFrame->tracking_rects_.size(), -1);
@@ -515,6 +516,7 @@ void LocalMapping::CreateNewMapPoints() {
 
     // Triangulate each match
     const int nmatches = vMatchedIndices.size();
+    int matched_count = 0;
     for (int ikp = 0; ikp < nmatches; ikp++) {
       const int& idx1 = vMatchedIndices[ikp].first;
       const int& idx2 = vMatchedIndices[ikp].second;
@@ -829,7 +831,10 @@ void LocalMapping::CreateNewMapPoints() {
 
       mpAtlas->AddMapPoint(pMP);
       mlpRecentAddedMapPoints.push_back(pMP);
+
+      ++matched_count;
     }
+    D_PRINTF("\nKEYPOINT MATCH(%d, %d): %d\n", mpCurrentKeyFrame->mnId, pKF2->mnId, matched_count);
     is_tracked = true;
   }
 }
