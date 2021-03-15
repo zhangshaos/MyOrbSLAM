@@ -1,4 +1,4 @@
-/**
+﻿/**
 * This file is part of ORB-SLAM3
 *
 * Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez Rodríguez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
@@ -122,6 +122,9 @@ bool MapDrawer::ParseViewerParamFile(cv::FileStorage &fSettings)
 
 void MapDrawer::DrawMapPoints()
 {
+  // 测试用代码
+  static ofstream f("map.txt");
+  assert(f.is_open());
     const vector<MapPoint*> &vpMPs = mpAtlas->GetAllMapPoints(); // 读取所有点云的点
     const vector<MapPoint*> &vpRefMPs = mpAtlas->GetReferenceMapPoints();
 
@@ -141,6 +144,8 @@ void MapDrawer::DrawMapPoints()
         cv::Mat pos = vpMPs[i]->GetWorldPos();
         
         glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
+        f << pos.at<float>(0) << ';' << pos.at<float>(1) << ';'
+          << pos.at<float>(2) << endl;
     }
     glEnd();
 
@@ -154,7 +159,8 @@ void MapDrawer::DrawMapPoints()
             continue;
         cv::Mat pos = (*sit)->GetWorldPos();
         glVertex3f(pos.at<float>(0),pos.at<float>(1),pos.at<float>(2));
-
+        f << pos.at<float>(0) << ';' << pos.at<float>(1) << ';'
+          << pos.at<float>(2) << endl;
     } // 此处渲染的是原来的点
 
     glEnd();

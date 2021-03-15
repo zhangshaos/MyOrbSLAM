@@ -1,4 +1,4 @@
-#define DEBUG // use debug mode!!!
+﻿#define DEBUG // use debug mode!!!
 #include "vcc_zxm_utility.h"
 
 #ifdef DEBUG

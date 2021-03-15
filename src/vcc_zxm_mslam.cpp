@@ -1,4 +1,4 @@
-#include "config.h"
+﻿#include "config.h"
 
 #define SLAM_API_IMPLEMENT_HERE
 #include "vcc_zxm_mslam.h"
@@ -47,6 +47,9 @@ void zxm::MSLAM::track(const cv::Mat& img, const Eigen::Isometry3f& pose, const 
   if (Tcw.empty()) {
     return;
   } // track failed!
+  Eigen::Matrix4f t;
+  cv::cv2eigen(Tcw, t);
+  T_c_w_ = Eigen::Isometry3f(t);
 
   // convert real world coordinate to zxm camera coordinate.
   vec3 world_translation = pose.translation();
@@ -74,6 +77,8 @@ void zxm::MSLAM::track(const cv::Mat& img, const Eigen::Isometry3f& pose, const 
     last_slam_translation_ = slam_translation;
     is_initialized_ = true;
   } // return
+
+  printf("Tracking Frame %d\n", slam_system_->mpTracker->mCurrentFrame.mnId);
 }
 
 bool zxm::MSLAM::isCloudPointsChanged() {
@@ -94,12 +99,14 @@ std::map<int, std::vector<Eigen::Vector3f>> zxm::MSLAM::getAllBuildings(bool use
     int id = id_maps.first;
     auto points = id_maps.second;
     for (auto pt : points) {
-      assert(!pt->isBad());
+      if (pt->isBad()) continue;
       Eigen::Vector3f pos;
       cv::cv2eigen(pt->GetWorldPos(), pos);
       if (use_real_coordinate) {
         pos *= scale_;
         pos = init_frame_pose_ * pos;
+      } else {
+        pos = T_c_w_ * pos;
       }
       assert(id == pt->building_id_);
       assert(id >= 0);

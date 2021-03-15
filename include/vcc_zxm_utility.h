@@ -1,4 +1,4 @@
-#ifndef __VCC_ZXM_UTILITY_H__
+﻿#ifndef __VCC_ZXM_UTILITY_H__
 #define __VCC_ZXM_UTILITY_H__
 
 #include <cassert>

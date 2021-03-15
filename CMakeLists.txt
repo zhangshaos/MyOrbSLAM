@@ -35,6 +35,12 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   # (CMake sets /MD by default, but for example Pangolin uses /MT by default)
   #set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
   #set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+
+  # Some useless Warning in visual studio
+  # 4267;4244;4305; These are implicit type conversion!!!
+  add_compile_options(/wd4267)
+  add_compile_options(/wd4244)
+  add_compile_options(/wd4305)
 endif()
 
 # fix big obj file fatal error 
@@ -66,6 +72,8 @@ MESSAGE(STATUS "OpenCV VERSION: ${OpenCV_VERSION}")
 find_package(Eigen3 3.1.0 REQUIRED)
 
 find_package(Pangolin REQUIRED)
+message(STATUS "Pangolin_INCLUDE_DIRS ${Pangolin_INCLUDE_DIRS}")
+message(STATUS "Pangolin_LIBRARIES ${Pangolin_LIBRARIES}")
 
 find_package(Boost REQUIRED COMPONENTS serialization)
 MESSAGE(STATUS "Boost_LIBRARIES: ${Boost_LIBRARIES}")
@@ -89,9 +97,9 @@ include_directories(
   ${OPENSSL_INCLUDE_DIR}
 )
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib/${CMAKE_BUILD_TYPE})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib/${CMAKE_BUILD_TYPE})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build/${CMAKE_BUILD_TYPE})
 
 add_library(${PROJECT_NAME} SHARED
   src/System.cpp

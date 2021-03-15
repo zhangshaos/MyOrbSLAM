@@ -1,4 +1,4 @@
-#ifndef __VCC_ZXM_MSLAM_H__
+﻿#ifndef __VCC_ZXM_MSLAM_H__
 #define __VCC_ZXM_MSLAM_H__
 
 #include <cstdint>
@@ -46,6 +46,7 @@ private:
   std::shared_ptr<ORB_SLAM3::System>  slam_system_;
   // Building IDs of tracking rectangles, not include all buildings.
   std::vector<int>                    building_IDs_;
+  Eigen::Isometry3f   T_c_w_; // Tcw of current frame.
   // InitialFrame's pose(like Twc) for convert SLAM coordinate position to Real World coordinate position, see track() for usage.
   Eigen::Isometry3f   init_frame_pose_;
   Eigen::Vector3f     last_world_translation_,

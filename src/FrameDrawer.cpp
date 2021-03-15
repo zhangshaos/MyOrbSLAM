@@ -1,4 +1,4 @@
-/**
+﻿/**
  * This file is part of ORB-SLAM3
  *
  * Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez
@@ -409,9 +409,12 @@ void FrameDrawer::Update(Tracking* pTracker) {
   for (int k = 0; k < map_key2rects.size(); ++k) {
     vector<int>& rects = map_key2rects[k];
     int building = -1;
-    int rect_id = rects.front(); // TODO now we use first rectangle!
-    if (rect_id >= 0) {
-      building = map_rect2building[rect_id];
+    // find first non -1 rectangle
+    for (int r : rects) {
+      if (r >= 0) {
+        building = map_rect2building[r];
+        break;
+      }
     }
     map_key2building_.emplace_back(building);
   } // <map_key2building_> filled over!

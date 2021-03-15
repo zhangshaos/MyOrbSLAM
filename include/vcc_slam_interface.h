@@ -1,4 +1,4 @@
-#ifndef __VCC_SLAM_INTERFACE__
+﻿#ifndef __VCC_SLAM_INTERFACE__
 #define __VCC_SLAM_INTERFACE__
 
 #ifdef _WIN32

@@ -1,4 +1,4 @@
-/**
+﻿/**
 * This file is part of ORB-SLAM3
 *
 * Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez Rodríguez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
@@ -128,6 +128,7 @@ public:
 
     // Tracking rects, below two are initialized or set by System::trackMSLAM().
     vector<cv::Rect2f> tracking_rects_;
+    int max_building_ID_ = 0;
     vector<int>* building_IDs_; // Map rect_ID => building_ID
 
     // Keypoint matches of last frame and current frame.
