@@ -1136,7 +1136,6 @@ namespace ORB_SLAM3
         i++;
       }
     }
-    cout << "\n[ORBextractor]: extracted" << _keypoints.size() << " KeyPoints\n" << endl;
     return monoIndex;
   }
 

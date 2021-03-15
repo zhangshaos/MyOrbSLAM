@@ -290,7 +290,6 @@ namespace ORB_SLAM3
   {
     // Frame ID
     mnId = nNextId++;
-    D_PRINTF("This frame's id is %ld\n", mnId);
 
     // Scale Level Info
     mnScaleLevels = mpORBextractorLeft->GetLevels();

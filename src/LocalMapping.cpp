@@ -487,6 +487,8 @@ void LocalMapping::CreateNewMapPoints() {
     // Compute rectangle match from current KF to ref KF.
     vector<int> rect_match(mpCurrentKeyFrame->tracking_rects_.size(), -1);
     if (!is_tracked) {
+      DBG("LocalMappint: start to track KF %d\n", mpCurrentKeyFrame->mnId);
+
       zxm::BestMatchGraph match;
       for (auto& r : vMatchedIndices) {
         if (r.first < 0 || r.second < 0) {
@@ -550,7 +552,7 @@ void LocalMapping::CreateNewMapPoints() {
           matched_cur_rects.emplace(target);
         }  // else 维持 -1
       } // 纠正完毕
-      D_BLOCK(for (int i = 0; i < rect_match.size(); ++i) {
+      BLOCK(for (int i = 0; i < rect_match.size(); ++i) {
         printf("LocalMapping: KF-%d => KF-%d: R%d => R%d\n",
                mpCurrentKeyFrame->mnId, pKF2->mnId, i, rect_match[i]);
       });
@@ -566,12 +568,14 @@ void LocalMapping::CreateNewMapPoints() {
               pKF2->map_rect2buildingID_[ref_rect];
         }
       }  // detect new region as new building!
-      D_BLOCK(
+      BLOCK(
           for (int i = 0; i < mpCurrentKeyFrame->tracking_rects_.size(); ++i) {
             int building = mpCurrentKeyFrame->map_rect2buildingID_[i];
             printf("LocalMappint KF-%d: Rect %d <=> Building %d\n",
                    mpCurrentKeyFrame->mnId, i, building);
           });
+
+      DBG("LocalMappint: end to track KF %d\n", mpCurrentKeyFrame->mnId);
     }  // rect_match computed over!
 
     cv::Mat Rcw2 = pKF2->GetRotation();

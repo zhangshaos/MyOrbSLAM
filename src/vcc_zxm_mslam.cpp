@@ -77,8 +77,6 @@ void zxm::MSLAM::track(const cv::Mat& img, const Eigen::Isometry3f& pose, const 
     last_slam_translation_ = slam_translation;
     is_initialized_ = true;
   } // return
-
-  printf("Tracking Frame %d\n", slam_system_->mpTracker->mCurrentFrame.mnId);
 }
 
 bool zxm::MSLAM::isCloudPointsChanged() {

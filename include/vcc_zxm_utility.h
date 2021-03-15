@@ -143,21 +143,17 @@ private:
 
 #ifdef DEBUG
 #include <cstdio>
-#include <thread>
-#include <sstream>
 
-#define D_PRINTF(...) do{ \
-  std::stringstream ss; \
-  ss << std::this_thread::get_id(); \
-  printf("\nThread %s\n  ", ss.str().c_str()); \
+#define DBG(...) do{ \
   printf(__VA_ARGS__); \
 }while(0)
 
-#define D_BLOCK(s) do{s}while(0)
+#define BLOCK(s) do{s}while(0)
 
 #else
 
-#define D_PRINTF(...)
+#define DBG(...)
+#define BLOCK(s)
 
 #endif // DEBUG
 

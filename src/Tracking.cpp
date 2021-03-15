@@ -1892,8 +1892,6 @@ void Tracking::MonocularInitialization() {
     ORBmatcher matcher(0.9, true);
     int nmatches = matcher.SearchForInitialization(
         mInitialFrame, mCurrentFrame, mvbPrevMatched, mvIniMatches, 100);
-    D_PRINTF("\nMonocularInitialization keypoint match(%d, %d): %d\n",
-             mInitialFrame.mnId, mCurrentFrame.mnId, nmatches);
 
     // Check if there are enough correspondences
     if (nmatches < 100) {
@@ -2037,7 +2035,7 @@ void Tracking::CreateInitialMapMonocular() {
       pKFcur->map_rect2buildingID_[r] = mpAtlas->addBuilding();
     }  // 每个没有还未匹配的矩形，各新建一个 building
   }
-  D_BLOCK(
+  BLOCK(
       for (int i = 0; i < pKFini->tracking_rects_.size(); ++i) {
         int building = pKFini->map_rect2buildingID_[i];
         printf("KF-%d: Rect %d<=>Building %d\n", pKFini->mnId, i, building);
@@ -3764,6 +3762,7 @@ int Tracking::GetMatchesInliers() { return mnMatchesInliers; }
 
 void Tracking::track_rects() {
   using namespace std;
+  printf("START to track rectangle in frame %d\n", this->mCurrentFrame.mnId);
   unique_lock<mutex> lock(mMutexTracks);
 
   // compute matches of keypoint.
@@ -3788,8 +3787,6 @@ void Tracking::track_rects() {
       }
     }  // add areas-relationship
   }    // all keypoint finished
-  D_PRINTF("Tracking thread: (%d, %d) Keypoint match: %d\n", mCurrentFrame.mnId,
-           mLastFrame.mnId, matched_count);
 
   // FIX bugs when a rectangle match more one other rectangles.
   rect_matches_cur2last_.resize(tracking_rects_.size(), -1);
@@ -3830,6 +3827,8 @@ void Tracking::track_rects() {
     }
     *building_IDs_ = new_building_IDs;
   }
+
+  printf("END to track rectangle in frame %d\n", this->mCurrentFrame.mnId);
 }
 
 }  // namespace ORB_SLAM3
