@@ -33,10 +33,10 @@ Camera.RGB: 1
 ORBextractor.nFeatures: 1500
 
 # ORB Extractor: Scale factor between levels in the scale pyramid 	
-ORBextractor.scaleFactor: 1.25
+ORBextractor.scaleFactor: 1.2
 
 # ORB Extractor: Number of levels in the scale pyramid	
-ORBextractor.nLevels: 4
+ORBextractor.nLevels: 8
 
 # ORB Extractor: Fast threshold
 # Image is divided in a grid. At each cell FAST are extracted imposing a minimum response.

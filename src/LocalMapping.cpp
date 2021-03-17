@@ -740,6 +740,9 @@ void LocalMapping::CreateNewMapPoints() {
       }
       vector<int> pt_buildings(buildings.begin(), buildings.end());
 
+      // skip some untracked points....
+      if (pt_buildings.empty()) continue;
+
       // Triangulation is succesfull
       MapPoint* pMP =
           new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap());
