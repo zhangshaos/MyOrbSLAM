@@ -1118,7 +1118,7 @@ namespace ORB_SLAM3
           }
         }
         if (keypoint_areas.empty()) {
-          keypoint_areas.emplace_back(-1); // -1 means no area
+          //keypoint_areas.emplace_back(-1); // -1 means no area
         }
 
         if (keypoint->pt.x >= vLappingArea[0] && keypoint->pt.x <= vLappingArea[1]) { // Track comint here.

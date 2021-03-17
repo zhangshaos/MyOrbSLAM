@@ -86,6 +86,7 @@ namespace ORB_SLAM3
 
     tracking_rects_ = frame.tracking_rects_;
     key2rects_idx_  = frame.key2rects_idx_;
+    rect_to_buildings = frame.rect_to_buildings;
   }
 
 

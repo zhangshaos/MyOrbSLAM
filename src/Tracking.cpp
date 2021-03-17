@@ -19,8 +19,9 @@
  * ORB-SLAM3. If not, see <http://www.gnu.org/licenses/>.
  */
 
+// NEVER CHANGLE THIS
 #include "vcc_debug.h"
-#include "Tracking.h"
+// NEVER CHANGLE THIS
 
 #include <include/CameraModels/KannalaBrandt8.h>
 #include <include/CameraModels/Pinhole.h>
@@ -42,6 +43,7 @@
 #include "ORBmatcher.h"
 #include "Optimizer.h"
 #include "PnPsolver.h"
+#include "Tracking.h"
 
 #define __DEBUG__
 #include "vcc_zxm_utility.h"
@@ -1368,12 +1370,12 @@ void Tracking::Track() {
         mSensor == System::IMU_STEREO)
       StereoInitialization();
     else {
+      // if (mCurrentFrame.mnId != mLastFrame.mnId) track_rects();
       MonocularInitialization();
     }
 
     // track rect movement before update drawer
-    track_rects();
-    mpFrameDrawer->Update(this);
+    if (mState == OK) mpFrameDrawer->Update(this);
 
     if (mState != OK)  // If rightly initialized, mState=OK
     {
@@ -1937,6 +1939,7 @@ void Tracking::MonocularInitialization() {
 
 // 创建初始地图
 void Tracking::CreateInitialMapMonocular() {
+  track_rects(true);  // FIX bugs!!!
   // Create KeyFrames
   KeyFrame* pKFini =
       new KeyFrame(mInitialFrame, mpAtlas->GetCurrentMap(), mpKeyFrameDB);
@@ -1957,8 +1960,8 @@ void Tracking::CreateInitialMapMonocular() {
     if (mvIniMatches[i] < 0) continue;
 
     // 确定 MP 的 building ID
-    vector<int> &init_rects = mInitialFrame.key2rects_idx_[i],
-                &cur_rects = mCurrentFrame.key2rects_idx_[mvIniMatches[i]];
+    vector<int>&init_rects = mInitialFrame.key2rects_idx_[i],
+    &cur_rects = mCurrentFrame.key2rects_idx_[mvIniMatches[i]];
     set<int> buildings;
     for (int r : init_rects) {
       buildings.emplace(mInitialFrame.rect_to_buildings[r]);
@@ -3599,14 +3602,17 @@ int Tracking::GetNumberDataset() { return mnNumDataset; }
 
 int Tracking::GetMatchesInliers() { return mnMatchesInliers; }
 
-void Tracking::track_rects() {
+void Tracking::track_rects(bool initial) {
   using namespace std;
-  DBG("START to track rectangle in frame %d\n", this->mCurrentFrame.mnId);
   unique_lock<mutex> lock(mMutexTracks);
+  Frame* lastFrame = &mLastFrame;
+  if (initial) lastFrame = &mInitialFrame;
+  if (mCurrentFrame.mnId == lastFrame->mnId) return;
+  DBG("START to track rectangle in frame %d\n", this->mCurrentFrame.mnId);
 
   // compute matches of keypoint.
   ORBmatcher match(0.9f);
-  match.SearchForMatches(mCurrentFrame, mLastFrame, key_matches_cur2last_, 100);
+  match.SearchForMatches(mCurrentFrame, *lastFrame, key_matches_cur2last_, 100);
 
   int matched_count = 0;
   // compute matches of rectangles.
@@ -3618,7 +3624,7 @@ void Tracking::track_rects() {
     }
     ++matched_count;
     vector<int> kp1_areas = mCurrentFrame.key2rects_idx_.at(kp1),
-                kp2_areas = mLastFrame.key2rects_idx_.at(kp2);
+                kp2_areas = lastFrame->key2rects_idx_.at(kp2);
     // compute area relationship
     for (int area1 : kp1_areas) {
       if (area1 < 0) continue;
@@ -3637,25 +3643,50 @@ void Tracking::track_rects() {
     if (sz == 0) {
       rect_matches_cur2last_[i] = -1;
     } else if (sz == 1) {
-      rect_matches_cur2last_[i] = rects[0];
-      LOG(DEBUG)
-          << boost::format(
-                 "unique rectangle coorsponding(F-%d<=>F-%d): R-%d<=>R-%d\n") %
-                 mCurrentFrame.mnId % mLastFrame.mnId % i % rects[0];
+      int r = rects[0];
+      rect_matches_cur2last_[i] = r;
+      // 核实 i <=> rects[0]
+      // 两矩形的大小关系，如果差别太大，则在所有矩形中选择一个最相似的
+      float w1 = mCurrentFrame.tracking_rects_[i].width,
+            h1 = mCurrentFrame.tracking_rects_[i].height,
+            w2 = lastFrame->tracking_rects_[r].width,
+            h2 = lastFrame->tracking_rects_[r].height, dx = abs(w1 - w2),
+            dy = abs(h1 - h2);
+      float area = dx * dx + dy * dy;
+      DBG("dx * dx + dy * dy = %f AND rows = %d, cols = %d\n", area,
+          mImGray.rows, mImGray.cols);
+      if (area >= min(mImGray.rows, mImGray.cols)) {
+        LOG(DEBUG) << boost::format(
+                          "unique rectangle coorsponding(F-%d<=>F-%d): "
+                          "R-%d<=>R-%d with too high dx^2+dy^2 %f") %
+                          mCurrentFrame.mnId % lastFrame->mnId % i % rects[0] %
+                          area;
+        zxm::SimiliarRectSolver sv(w1, h1);
+        for (int j = 0; j < lastFrame->tracking_rects_.size(); ++j) {
+          float w = lastFrame->tracking_rects_[j].width,
+                h = lastFrame->tracking_rects_[j].height;
+          sv.addSimiliarRect(j, w, h);
+        }
+        rect_matches_cur2last_[i] = sv.getMostSimiliarRectID();
+      }
+      LOG(DEBUG) << boost::format(
+                        "unique(?) rectangle coorsponding(F-%d<=>F-%d): "
+                        "R-%d<=>R-%d\n") %
+                        mCurrentFrame.mnId % lastFrame->mnId % i % rects[0];
     } else {
       float w = mCurrentFrame.tracking_rects_[i].width;
       float h = mCurrentFrame.tracking_rects_[i].height;
       zxm::SimiliarRectSolver sv(w, h);
       for (int j : rects) {
-        w = mLastFrame.tracking_rects_[j].width;
-        h = mLastFrame.tracking_rects_[j].height;
+        w = lastFrame->tracking_rects_[j].width;
+        h = lastFrame->tracking_rects_[j].height;
         sv.addSimiliarRect(j, w, h);
       }
       rect_matches_cur2last_[i] = sv.getMostSimiliarRectID();
       LOG(DEBUG) << boost::format(
                         "similiar rectangle coorsponding(F-%d<=>F-%d): "
                         "R-%d<=>R-%d\n") %
-                        mCurrentFrame.mnId % mLastFrame.mnId % i %
+                        mCurrentFrame.mnId % lastFrame->mnId % i %
                         rect_matches_cur2last_[i];
     }
   }
@@ -3670,9 +3701,9 @@ void Tracking::track_rects() {
     float w = mCurrentFrame.tracking_rects_[r].width;
     float h = mCurrentFrame.tracking_rects_[r].height;
     zxm::SimiliarRectSolver sv(w, h);
-    for (int j = 0; j < mLastFrame.tracking_rects_.size(); ++j) {
-      w = mLastFrame.tracking_rects_[j].width;
-      h = mLastFrame.tracking_rects_[j].height;
+    for (int j = 0; j < lastFrame->tracking_rects_.size(); ++j) {
+      w = lastFrame->tracking_rects_[j].width;
+      h = lastFrame->tracking_rects_[j].height;
       sv.addSimiliarRect(j, w, h);
     }
     int target = sv.getMostSimiliarRectID();
@@ -3684,12 +3715,13 @@ void Tracking::track_rects() {
                         "No enough keypoints for matching, similiar rectangle "
                         "coorsponding(F-%d<=>F-%d): "
                         "R-%d<=>R-%d\n") %
-                        mCurrentFrame.mnId % mLastFrame.mnId % r % target;
+                        mCurrentFrame.mnId % lastFrame->mnId % r % target;
     }  // else 维持 -1
   }    // 纠正完毕
   // 设置矩形对应的建筑物 ID
   mCurrentFrame.rect_to_buildings.resize(mCurrentFrame.tracking_rects_.size(),
                                          -1);
+  int sz = lastFrame->rect_to_buildings.size();
   for (int r = 0; r < rect_matches_cur2last_.size(); ++r) {
     int ref_rect = rect_matches_cur2last_[r];
     if (ref_rect < 0) {
@@ -3697,12 +3729,23 @@ void Tracking::track_rects() {
       mCurrentFrame.rect_to_buildings[r] = id;
       LOG(DEBUG) << boost::format("F-%d, rectangle-%d to new building-%d\n") %
                         mCurrentFrame.mnId % r % id;
-    } else {
+    } else if (ref_rect < sz) {
       mCurrentFrame.rect_to_buildings[r] =
-          mLastFrame.rect_to_buildings[ref_rect];
+          lastFrame->rect_to_buildings[ref_rect];
       LOG(DEBUG) << boost::format("F-%d, rectangle-%d to building-%d\n") %
                         mCurrentFrame.mnId % r %
                         mCurrentFrame.rect_to_buildings[r];
+    } else {
+      // 上一帧没有初始化！当前应该只有 SLAM 初始化时到达这里
+      if (lastFrame->rect_to_buildings.size() == 0)
+        lastFrame->rect_to_buildings.resize(lastFrame->tracking_rects_.size(),
+                                            -1);
+      int id = mpAtlas->addBuilding();
+      mCurrentFrame.rect_to_buildings[r] =
+          lastFrame->rect_to_buildings[ref_rect] = id;
+      LOG(DEBUG) << boost::format(
+                        "F-%d, rectangle-%d to new initial building-%d\n") %
+                        lastFrame->mnId % ref_rect % id;
     }
   }  // detect new region as new building!
   DBG("END to track rectangle in frame %d\n", this->mCurrentFrame.mnId);

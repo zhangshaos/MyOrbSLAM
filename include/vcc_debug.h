@@ -1,6 +1,5 @@
 #ifndef __VCC_DEBUG_H__
 
-#define ELPP_THREAD_SAFE
 #include <easylogging++.h>
 
 #include <boost/exception/all.hpp>

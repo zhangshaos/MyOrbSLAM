@@ -133,7 +133,8 @@ public:
     vector<int> rect_matches_cur2last_;
 
     // Compute relationship of current tracking rects and last tracking rects.
-    void track_rects();
+    // if @initial is true, which means tracking initial frame for SLAM initializing!
+    void track_rects(bool initial = false);
 
     cv::Mat mImGray;
 
