@@ -3,25 +3,12 @@
 #define SLAM_API_IMPLEMENT_HERE
 #include "vcc_zxm_mslam.h"
 
-#define DEBUG // use debug mode
+#define __DEBUG__ // use debug mode
 #include "vcc_zxm_utility.h"
 
 // use cv::cv2eigen(). convert cv::Mat to Eigen.
 #include <opencv2/core/eigen.hpp>
 
-
-const array<cv::Scalar, N_BUILDING_COLORS> zxm::MSLAM::BUILDING_COLORS{
-  cv::Scalar(0., 153., 254.), // orange
-  cv::Scalar(0., 255., 255.), // yellow
-  cv::Scalar(255., 255., 0.), // blue-green
-  cv::Scalar(255., 0., 0.),   // blue
-  cv::Scalar(255., 0., 102.), // blue-perse
-  cv::Scalar(255., 0., 255.), // perse
-  cv::Scalar(102., 0., 255.), // perse-red
-  cv::Scalar(0., 0., 255.),   // red
-  cv::Scalar(0., 255., 153.), // yellow-green
-  cv::Scalar(0., 255., 0.)    // green
-};
 
 zxm::MSLAM::MSLAM(const string& path_voc_file, const string& path_setting_file, bool use_viewer)
   : slam_system_(new ORB_SLAM3::System(path_voc_file, path_setting_file, ORB_SLAM3::System::eSensor::MONOCULAR, use_viewer))
@@ -32,12 +19,12 @@ zxm::MSLAM::MSLAM(const string& path_voc_file, const string& path_setting_file, 
 zxm::MSLAM::~MSLAM()
 { }
 
-void zxm::MSLAM::track(const cv::Mat& img, const Eigen::Isometry3f& pose, const std::vector<cv::Rect2f>& rects)
+bool zxm::MSLAM::track(const cv::Mat& img, const Eigen::Isometry3f& pose, const std::vector<cv::Rect2f>& rects)
 {
   using namespace std;
   using vec3 = Eigen::Vector3f;
   
-  cv::Mat Tcw = slam_system_->trackMSLAM(img, rects, building_IDs_); // return Tcw
+  cv::Mat Tcw = slam_system_->trackMSLAM(img, rects); // return Tcw
 
   if (slam_system_->mpTracker->mbInitialFrameReset) {
     init_frame_pose_ = pose;
@@ -45,12 +32,13 @@ void zxm::MSLAM::track(const cv::Mat& img, const Eigen::Isometry3f& pose, const 
   } // current frame is initialized frame
 
   if (Tcw.empty()) {
-    return;
+    return false;
   } // track failed!
   Eigen::Matrix4f t;
   cv::cv2eigen(Tcw, t);
   T_c_w_ = Eigen::Isometry3f(t);
 
+  // 下面计算 SLAM 坐标系到现实坐标系的转换关系
   // convert real world coordinate to zxm camera coordinate.
   vec3 world_translation = pose.translation();
   cv::Mat camera_pose = Tcw.inv(); // get Twc matrix.
@@ -76,7 +64,8 @@ void zxm::MSLAM::track(const cv::Mat& img, const Eigen::Isometry3f& pose, const 
     last_world_translation_ = world_translation;
     last_slam_translation_ = slam_translation;
     is_initialized_ = true;
-  } // return
+  }
+  return true;
 }
 
 bool zxm::MSLAM::isCloudPointsChanged() {
@@ -85,17 +74,14 @@ bool zxm::MSLAM::isCloudPointsChanged() {
   return ans;
 }
 
-std::vector<int> zxm::MSLAM::getBuildingID() {
-  return building_IDs_;
-}
 
 std::map<int, std::vector<Eigen::Vector3f>> zxm::MSLAM::getAllBuildings(bool use_real_coordinate)
 {
   std::map<int, std::vector<Eigen::Vector3f>> map_buildingID2points;
   auto buildings = slam_system_->mpAtlas->getAllBuildings();
-  for (auto& id_maps : buildings) {
-    int id = id_maps.first;
-    auto points = id_maps.second;
+  for (auto& id_pts : buildings) {
+    int id = id_pts.first;
+    auto points = id_pts.second;
     for (auto pt : points) {
       if (pt->isBad()) continue;
       Eigen::Vector3f pos;
@@ -103,25 +89,36 @@ std::map<int, std::vector<Eigen::Vector3f>> zxm::MSLAM::getAllBuildings(bool use
       if (use_real_coordinate) {
         pos *= scale_;
         pos = init_frame_pose_ * pos;
-      } else {
-        pos = T_c_w_ * pos;
       }
-      assert(id == pt->building_id_);
-      assert(id >= 0);
       map_buildingID2points[id].push_back(move(pos));
     }
   }
   return map_buildingID2points;
 }
 
+std::vector<std::vector<Eigen::Vector3f>> zxm::MSLAM::getCurrentBuildings() {
+  auto buildings = slam_system_->mpAtlas->getAllBuildings();
+  auto r2b = slam_system_->mpTracker->mCurrentFrame.rect_to_buildings;
+  std::vector<std::vector<Eigen::Vector3f>> points(r2b.size());
+  for (int r = 0; r < r2b.size(); ++r) {
+    int b = r2b[r];
+    if (buildings.count(b)) {
+      auto& pts = buildings[b];
+      // 将好的点加入
+      for (auto pt : pts) {
+        if (pt->isBad()) continue;
+        Eigen::Vector3f pos;
+        cv::cv2eigen(pt->GetWorldPos(), pos);
+        points[r].emplace_back(T_c_w_ * pos);
+      }
+    }
+  }
+  return points;
+}
+
 void zxm::MSLAM::shutDown()
 {
   slam_system_->Shutdown();
-}
-
-const cv::Scalar& zxm::MSLAM::getBuildingColor(int id) {
-  assert(id >= 0 && "we not support default building color now!");
-  return BUILDING_COLORS[id % N_BUILDING_COLORS];
 }
 
 extern "C"

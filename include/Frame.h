@@ -223,6 +223,7 @@ public:
     // tracking rect area
     vector<cv::Rect2f> tracking_rects_;
     vector<vector<int>> key2rects_idx_;  // key2rect_idx_[i] means the i-th keypoint belong to key2rect_idx_[i]-th tracking rects(more one maybe).
+    vector<int> rect_to_buildings;
 
     // Current and Next Frame id.
     static long unsigned int nNextId;

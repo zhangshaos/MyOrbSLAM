@@ -153,14 +153,9 @@ System::System(const string &strVocFile, const string &strSettingsFile, const eS
 
 }
 
-cv::Mat System::trackMSLAM(const cv::Mat& im, const vector<cv::Rect2f>& rects, vector<int>& rect2buildingID) {
-  static int64_t im_id = -1; // imput <im> counts.
-  // 设置 tracking 的 rects
-  // 从 tracking 中读取 rects2buildingID
+cv::Mat System::trackMSLAM(const cv::Mat& im, const vector<cv::Rect2f>& rects) {
   std::unique_lock<std::mutex> lock(mpTracker->mMutexTracks);
-  mpTracker->tracking_ID_    = ++im_id;
   mpTracker->tracking_rects_ = rects;
-  mpTracker->building_IDs_   = &rect2buildingID;
   lock.unlock();
   return TrackMonocular(im, 0.);
 }

@@ -30,9 +30,6 @@
 #include <include/CameraModels/Pinhole.h>
 #include <include/CameraModels/KannalaBrandt8.h>
 
-#define DEBUG
-// Use D_PRINTF(),
-#include "vcc_zxm_utility.h"
 
 namespace ORB_SLAM3
 {

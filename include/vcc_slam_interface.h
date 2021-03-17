@@ -9,21 +9,19 @@
 #endif
 #elif __linux__
 #ifdef SLAM_API_IMPLEMENT_HERE
-#define SLAM_API __attribute__ ((visibility("default")))
+#define SLAM_API __attribute__((visibility("default")))
 #else
-#define SLAM_API __attribute__ ((visibility("hidden")))
+#define SLAM_API __attribute__((visibility("hidden")))
 #endif
 #else
 #define SLAM_API
 #endif
 
-#include <vector>
-
 #include <eigen3/Eigen/Geometry>
 #include <opencv2/opencv.hpp>
+#include <vector>
 
-namespace zxm
-{
+namespace zxm {
 // Interface of a Orb-SLAM system.
 // USAGE:
 //    zxm::ISLAM* slam = GetInstanceOfSLAM();
@@ -39,9 +37,8 @@ namespace zxm
 //    }
 //    slam->shutDown();
 //    DesctroySLAM(slam);
-class ISLAM
-{
-public:
+class ISLAM {
+ public:
   ISLAM() {}
   ISLAM(const ISLAM&) = delete;
   ISLAM(ISLAM&&) = delete;
@@ -53,21 +50,22 @@ public:
   // <img>    input picture.
   // <pose>   original key frame's pose in world coordinate.
   // <rects>  tracking building area(2D rectangel).
-  virtual void track(const cv::Mat& img,
-                     const Eigen::Isometry3f& pose,
+  virtual bool track(const cv::Mat& img, const Eigen::Isometry3f& pose,
                      const std::vector<cv::Rect2f>& rects) = 0;
 
   // Test whether clould points changed.
   virtual bool isCloudPointsChanged() = 0;
 
-  // Get corresponding builiding ID of input tracking building area.
-  virtual std::vector<int> getBuildingID() = 0;
-
   // Get all buildings' clould points.
   // Return map <building id>-<building cloud points>.
-  // If <use_real_coordinate> is true(default), the points coordinate will be convert to
-  // real world, else use the SLAM coordinate.
-  virtual std::map<int, std::vector<Eigen::Vector3f>> getAllBuildings(bool use_real_coordinate = true) = 0;
+  // If <use_real_coordinate> is true(default), the points coordinate will be
+  // convert to real world, else use the SLAM coordinate.
+  virtual std::map<int, std::vector<Eigen::Vector3f>> getAllBuildings(
+      bool use_real_coordinate = true) = 0;
+
+  // Get all building's clould points of CURRENT frame(masked by
+  // track(...rects))
+  virtual std::vector<std::vector<Eigen::Vector3f>> getCurrentBuildings() = 0;
 
   // Shut down the slam system.
   virtual void shutDown() = 0;
@@ -75,14 +73,13 @@ public:
   virtual ~ISLAM() {}
 };
 
-} // namespace slam
+}  // namespace zxm
 
-extern "C"
-{
-  // See USAGE of class slam::ISLAM ! 
-  // Alse see DesctroySLAM() for destroying the slam system.
-  SLAM_API  zxm::ISLAM* GetInstanceOfSLAM();
-  SLAM_API  void DesctroySLAM(zxm::ISLAM* obj);
+extern "C" {
+// See USAGE of class slam::ISLAM !
+// Alse see DesctroySLAM() for destroying the slam system.
+SLAM_API zxm::ISLAM* GetInstanceOfSLAM();
+SLAM_API void DesctroySLAM(zxm::ISLAM* obj);
 }
 
 #endif

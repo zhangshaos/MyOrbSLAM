@@ -75,15 +75,18 @@ find_package(Pangolin REQUIRED)
 message(STATUS "Pangolin_INCLUDE_DIRS ${Pangolin_INCLUDE_DIRS}")
 message(STATUS "Pangolin_LIBRARIES ${Pangolin_LIBRARIES}")
 
-find_package(Boost REQUIRED COMPONENTS serialization)
+find_package(Boost REQUIRED)
 MESSAGE(STATUS "Boost_LIBRARIES: ${Boost_LIBRARIES}")
 
 set(OPENSSL_USE_STATIC_LIBS TRUE)
 find_package(OpenSSL REQUIRED) # for crypto library
 
+find_package(easyloggingpp REQUIRED)
+
 # set config file
 set(CONFIG_SLAM_VOC_FILE "${PROJECT_SOURCE_DIR}/config/ORBvoc.bin")
 set(CONFIG_SLAM_SETTING_FILE "${PROJECT_SOURCE_DIR}/config/EuRoC.yaml")
+set(CONFIG_LOG_CONF "${PROJECT_SOURCE_DIR}/config/log.conf")
 set(CONFIG_USE_VIEWER true)
 configure_file("${PROJECT_SOURCE_DIR}/config.h.in"
                "${PROJECT_SOURCE_DIR}/config.h")
@@ -95,6 +98,7 @@ include_directories(
   ${EIGEN3_INCLUDE_DIR}
   ${Pangolin_INCLUDE_DIRS}
   ${OPENSSL_INCLUDE_DIR}
+  ${EASYLOGGINGPP_INCLUDE}
 )
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib/${CMAKE_BUILD_TYPE})
@@ -160,8 +164,10 @@ add_library(${PROJECT_NAME} SHARED
   include/vcc_zxm_mslam.h
   include/vcc_slam_interface.h
   include/vcc_zxm_utility.h
+  include/vcc_debug.h
   src/vcc_zxm_mslam.cpp
   src/vcc_zxm_utility.cpp
+  src/vcc_debug.cpp
   config.h
 )
 
@@ -177,6 +183,7 @@ target_link_libraries(${PROJECT_NAME}
   g2o
   ${Boost_LIBRARIES}
   ${OPENSSL_CRYPTO_LIBRARY}
+  ${EASYLOGGINGPP_LIB}
 )
 
 # Build examples

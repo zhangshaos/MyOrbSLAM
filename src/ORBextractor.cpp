@@ -60,7 +60,7 @@
 
 #include "ORBextractor.h"
 
-#define DEBUG
+#define __DEBUG__
 #include "vcc_zxm_utility.h"
 
 
@@ -444,7 +444,7 @@ namespace ORB_SLAM3
       sumFeatures += mnFeaturesPerLevel[level];
       nDesiredFeaturesPerScale *= factor;
     }
-    mnFeaturesPerLevel[nlevels - 1] = std::max(nfeatures - sumFeatures, 0);
+    mnFeaturesPerLevel[nlevels - 1] = max(nfeatures - sumFeatures, 0);
 
     const int npoints = 512;
     const Point* pattern0 = (const Point*)bit_pattern_31_;

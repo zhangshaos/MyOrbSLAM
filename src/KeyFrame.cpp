@@ -64,10 +64,6 @@ KeyFrame::KeyFrame(Frame& F, Map* pMap, KeyFrameDatabase* pKFDB) :
   mvLeftToRightMatch(F.mvLeftToRightMatch), mvRightToLeftMatch(F.mvRightToLeftMatch), mTlr(F.mTlr.clone()),
   mvKeysRight(F.mvKeysRight), NLeft(F.Nleft), NRight(F.Nright), mTrl(F.mTrl), mnNumberOfOpt(0)
 {
-  tracking_rects_   = F.tracking_rects_;
-  map_key2rectIDs_  = F.key2rects_idx_; // copy not move!
-  map_rect2buildingID_.resize(tracking_rects_.size(), -1);
-
   imgLeft = F.imgLeft.clone();
   imgRight = F.imgRight.clone();
 
@@ -95,6 +91,10 @@ KeyFrame::KeyFrame(Frame& F, Map* pMap, KeyFrameDatabase* pKFDB) :
   SetPose(F.mTcw);
 
   mnOriginMapId = pMap->GetId();
+
+  // 提供数据！
+  key_to_rects = F.key2rects_idx_;
+  rect_to_building = F.rect_to_buildings;
 }
 
 void KeyFrame::ComputeBoW() {

@@ -19,6 +19,7 @@
  * ORB-SLAM3. If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "vcc_debug.h"
 #include "Tracking.h"
 
 #include <include/CameraModels/KannalaBrandt8.h>
@@ -42,7 +43,7 @@
 #include "Optimizer.h"
 #include "PnPsolver.h"
 
-#define DEBUG
+#define __DEBUG__
 #include "vcc_zxm_utility.h"
 
 using namespace std;
@@ -1952,188 +1953,26 @@ void Tracking::CreateInitialMapMonocular() {
   mpAtlas->AddKeyFrame(pKFini);
   mpAtlas->AddKeyFrame(pKFcur);
 
-  // 追踪两关键帧矩形的关系 KFini => KFcur
-  vector<int> rect_match(pKFini->tracking_rects_.size(), -1);
-  zxm::BestMatchGraph match;
-  for (int kp1 = 0; kp1 < mvIniMatches.size(); ++kp1) {
-    int kp2 = mvIniMatches[kp1];
-    if (kp2 < 0) {
-      continue;
-    }  // skip not matched result.
-    vector<int> rects1 = pKFini->map_key2rectIDs_[kp1],
-                rects2 = pKFcur->map_key2rectIDs_[kp2];
-    for (int r1 : rects1) {
-      if (r1 < 0) {
-        continue;
-      }  // skip
-      for (int r2 : rects2) {
-        if (r2 < 0) {
-          continue;
-        }  // skip
-        match.AddRelation(r1, r2);
-      }
-    }
-  }  // fill all matches
-  for (int r = 0; r < rect_match.size(); ++r) {
-    vector<int> candinates = match.QueryCandinates(r);
-    int sz = candinates.size();
-    if (sz == 0) {
-      rect_match[r] = -1;
-    }  // cur KF rectangle r => nothing
-    else if (sz == 1) {
-      rect_match[r] = candinates.front();
-    } else {
-      // r => more than 1 rectangles, need to be decreased
-      float w = pKFini->tracking_rects_[r].width,
-            h = pKFini->tracking_rects_[r].height;
-      zxm::SimiliarRectSolver sv(w, h);
-      for (int i : candinates) {
-        w = pKFcur->tracking_rects_[i].width;
-        h = pKFcur->tracking_rects_[i].height;
-        sv.addSimiliarRect(i, w, h);
-      }
-      rect_match[r] = sv.getMostSimiliarRectID();
-    }
-  }  // compute r => r(ref KF)
-  // 纠正没有特征点的矩形匹配关系
-  set<int> matched_cur_rects; // 当前 KF 中已经被匹配的矩形索引
-  for (int r = 0; r < rect_match.size(); ++r) {
-    if (rect_match[r] >= 0) {
-      matched_cur_rects.emplace(rect_match[r]);
-      continue;
-    }
-    // TODO: 没有特征点计算矩形匹配关系时，追踪最像且没被匹配的矩形
-    float w = pKFini->tracking_rects_[r].width,
-          h = pKFini->tracking_rects_[r].height;
-    zxm::SimiliarRectSolver sv(w, h);
-    for (int i = 0; i < pKFcur->tracking_rects_.size(); ++i) {
-      w = pKFcur->tracking_rects_[i].width;
-      h = pKFcur->tracking_rects_[i].height;
-      sv.addSimiliarRect(i, w, h);
-    }
-    int target = sv.getMostSimiliarRectID();
-    // 当前 KF 中的矩形 target 没有被匹配了，则
-    if (matched_cur_rects.count(target) == 0) {
-      rect_match[r] = target;
-      matched_cur_rects.emplace(target);
-    } // else 维持 -1
-  } // 纠正完毕
-  printf("\nCreateInitialMapMonocular KFini:%d, KFcur:%d\n", pKFini->mnId,
-           pKFcur->mnId);
-
-  // 计算两 KF 对应的 building ID
-  for (int r = 0; r < rect_match.size(); ++r) {
-    int id = mpAtlas->addBuilding();
-    pKFini->map_rect2buildingID_[r] = id;
-    int kfcur_rect = rect_match[r];
-    if (kfcur_rect >= 0)
-      pKFcur->map_rect2buildingID_[kfcur_rect] = id;
-  }  // detect new region as new building!
-  // pKFcur 的每个矩形都必须对应一个 building
-  for (int r = 0; r < pKFcur->tracking_rects_.size(); ++r) {
-    if (pKFcur->map_rect2buildingID_[r] < 0) {
-      pKFcur->map_rect2buildingID_[r] = mpAtlas->addBuilding();
-    }  // 每个没有还未匹配的矩形，各新建一个 building
-  }
-  BLOCK(
-      for (int i = 0; i < pKFini->tracking_rects_.size(); ++i) {
-        int building = pKFini->map_rect2buildingID_[i];
-        printf("KF-%d: Rect %d<=>Building %d\n", pKFini->mnId, i, building);
-      }
-      for (int i = 0; i < pKFcur->tracking_rects_.size(); ++i) {
-        int building = pKFcur->map_rect2buildingID_[i];
-        printf("KF-%d: Rect %d<=>Building %d\n", pKFcur->mnId, i, building);
-      }
-  );
-
   for (size_t i = 0; i < mvIniMatches.size(); i++) {
     if (mvIniMatches[i] < 0) continue;
 
-    // 简化特征点对应的矩形区域
-    vector<int>&idx1_rects = pKFini->map_key2rectIDs_[i],
-    &idx2_rects = pKFcur->map_key2rectIDs_[mvIniMatches[i]];
-    if (idx1_rects.size() > 1 || idx2_rects.size() > 1) {
-      vector<int> better_rects1, better_rects2;
-      for (int r1 : idx1_rects) {
-        if (r1 < 0) {
-          continue;
-        }
-        int r2 = rect_match[r1];
-        if (r2 < 0) {
-          continue;
-        }
-        auto it = std::find(idx2_rects.begin(), idx2_rects.end(), r2),
-             itend = idx2_rects.end();
-        if (it != itend) {
-          better_rects1.emplace_back(r1);
-          better_rects2.emplace_back(r2);
-        }
-      }
-      if (!better_rects1.empty()) {
-        swap(idx1_rects, better_rects1);
-      }
-      if (!better_rects2.empty()) {
-        swap(idx2_rects, better_rects2);
-      }
-    }  // basic simplify
-    // Further Simplifying for Current KF!
-    if (idx1_rects.size() > 1) {
-      int better_r = -1;
-      float max_h = 0.f;
-      for (int r : idx1_rects) {
-        float h =
-            pKFini->tracking_rects_[r].y + pKFini->tracking_rects_[r].height;
-        if (h > max_h) {
-          better_r = r;
-          max_h = h;
-        }
-      }
-      if (better_r >= 0) {
-        idx1_rects.clear();
-        idx1_rects.emplace_back(better_r);
-      }
-    }
-    if (idx2_rects.size() > 1) {
-      int better_r = -1;
-      float max_h = 0.f;
-      for (int r : idx2_rects) {
-        float h =
-            pKFcur->tracking_rects_[r].y + pKFcur->tracking_rects_[r].height;
-        if (h > max_h) {
-          better_r = r;
-          max_h = h;
-        }
-      }
-      if (better_r >= 0) {
-        idx2_rects.clear();
-        idx2_rects.emplace_back(better_r);
-      }
-    }
-
     // 确定 MP 的 building ID
-    int building_ID = -1;
-    int r1 = idx1_rects.front(), r2 = idx2_rects.front();
-    if (r1 < 0 && r2 < 0) {
-      continue;
-    } else if (r1 < 0 && r2 >= 0) {
-      building_ID = pKFcur->map_rect2buildingID_[r2];
-    } else if (r1 >= 0 && r2 < 0) {
-      building_ID = pKFini->map_rect2buildingID_[r1];
-    } else {  // r1 >= 0 && r2 >= 0
-      int id1 = pKFini->map_rect2buildingID_[r1],
-          id2 = pKFcur->map_rect2buildingID_[r2];
-      if (id1 == id2) {
-        building_ID = id1;
-      } else {
-        continue;
-      }
+    vector<int> &init_rects = mInitialFrame.key2rects_idx_[i],
+                &cur_rects = mCurrentFrame.key2rects_idx_[mvIniMatches[i]];
+    set<int> buildings;
+    for (int r : init_rects) {
+      buildings.emplace(mInitialFrame.rect_to_buildings[r]);
     }
+    for (int r : cur_rects) {
+      buildings.emplace(mCurrentFrame.rect_to_buildings[r]);
+    }
+    vector<int> pt_buildings(buildings.begin(), buildings.end());
 
     // Create MapPoint.
     cv::Mat worldPos(mvIniP3D[i]);
     MapPoint* pMP = new MapPoint(worldPos, pKFcur, mpAtlas->GetCurrentMap());
 
-    pMP->building_id_ = building_ID;
+    pMP->building_ids_ = move(pt_buildings);
 
     pKFini->AddMapPoint(pMP, i);
     pKFcur->AddMapPoint(pMP, mvIniMatches[i]);
@@ -3762,7 +3601,7 @@ int Tracking::GetMatchesInliers() { return mnMatchesInliers; }
 
 void Tracking::track_rects() {
   using namespace std;
-  printf("START to track rectangle in frame %d\n", this->mCurrentFrame.mnId);
+  DBG("START to track rectangle in frame %d\n", this->mCurrentFrame.mnId);
   unique_lock<mutex> lock(mMutexTracks);
 
   // compute matches of keypoint.
@@ -3782,53 +3621,91 @@ void Tracking::track_rects() {
                 kp2_areas = mLastFrame.key2rects_idx_.at(kp2);
     // compute area relationship
     for (int area1 : kp1_areas) {
+      if (area1 < 0) continue;
       for (int area2 : kp2_areas) {
+        if (area2 < 0) continue;
         rects_match.AddRelation(area1, area2);
       }
     }  // add areas-relationship
   }    // all keypoint finished
 
-  // FIX bugs when a rectangle match more one other rectangles.
-  rect_matches_cur2last_.resize(tracking_rects_.size(), -1);
+  // 计算矩形的追踪关系
+  rect_matches_cur2last_.resize(mCurrentFrame.tracking_rects_.size(), -1);
   for (int i = 0, iend = rect_matches_cur2last_.size(); i < iend; ++i) {
     vector<int> rects = rects_match.QueryCandinates(i);
-    // TODO we use the first matched rectangle as the traget.
-    int best = -1;
-    for (int r : rects) {
-      if (r >= 0) {
-        best = r;
-        break;
+    int sz = rects.size();
+    if (sz == 0) {
+      rect_matches_cur2last_[i] = -1;
+    } else if (sz == 1) {
+      rect_matches_cur2last_[i] = rects[0];
+      LOG(DEBUG)
+          << boost::format(
+                 "unique rectangle coorsponding(F-%d<=>F-%d): R-%d<=>R-%d\n") %
+                 mCurrentFrame.mnId % mLastFrame.mnId % i % rects[0];
+    } else {
+      float w = mCurrentFrame.tracking_rects_[i].width;
+      float h = mCurrentFrame.tracking_rects_[i].height;
+      zxm::SimiliarRectSolver sv(w, h);
+      for (int j : rects) {
+        w = mLastFrame.tracking_rects_[j].width;
+        h = mLastFrame.tracking_rects_[j].height;
+        sv.addSimiliarRect(j, w, h);
       }
+      rect_matches_cur2last_[i] = sv.getMostSimiliarRectID();
+      LOG(DEBUG) << boost::format(
+                        "similiar rectangle coorsponding(F-%d<=>F-%d): "
+                        "R-%d<=>R-%d\n") %
+                        mCurrentFrame.mnId % mLastFrame.mnId % i %
+                        rect_matches_cur2last_[i];
     }
-    rect_matches_cur2last_[i] = best;
   }
-
-  // Set building ID of the rectangles.
-  assert(building_IDs_ != nullptr);
-  if (building_IDs_->empty()) {
-    // initialize buildings' id... building_IDs_[i] = i or -1,
-    // -1 means can't find any keypoint in the rectangle i.
-    *building_IDs_ = rect_matches_cur2last_;
-    for (int id : *building_IDs_) {
-      if (id > max_building_ID_) max_building_ID_ = id;
+  // 纠正没有特征点的矩形匹配关系 rect_matches_cur2last_[i] == -1
+  set<int> matched_cur_rects;  // 当前 KF 中已经被匹配的矩形索引
+  for (int r = 0; r < rect_matches_cur2last_.size(); ++r) {
+    if (rect_matches_cur2last_[r] >= 0) {
+      matched_cur_rects.emplace(rect_matches_cur2last_[r]);
+      continue;
     }
-  } else {
-    // current rect id => last rect id => last building id
-    vector<int> new_building_IDs(rect_matches_cur2last_.size(), -1);
-    for (int cur_id = 0; cur_id < rect_matches_cur2last_.size(); ++cur_id) {
-      int last_id = rect_matches_cur2last_[cur_id];
-      if (last_id < 0) {
-        // create a new building
-        // FIXME, this is a BUG!!!
-        new_building_IDs[cur_id] = ++max_building_ID_;
-      } else {
-        new_building_IDs[cur_id] = building_IDs_->at(last_id);
-      }
+    // TODO: 没有特征点计算矩形匹配关系时，追踪最像且没被匹配的矩形
+    float w = mCurrentFrame.tracking_rects_[r].width;
+    float h = mCurrentFrame.tracking_rects_[r].height;
+    zxm::SimiliarRectSolver sv(w, h);
+    for (int j = 0; j < mLastFrame.tracking_rects_.size(); ++j) {
+      w = mLastFrame.tracking_rects_[j].width;
+      h = mLastFrame.tracking_rects_[j].height;
+      sv.addSimiliarRect(j, w, h);
     }
-    *building_IDs_ = new_building_IDs;
-  }
-
-  printf("END to track rectangle in frame %d\n", this->mCurrentFrame.mnId);
+    int target = sv.getMostSimiliarRectID();
+    // 当前 KF 中的矩形 target 没有被匹配了，则
+    if (matched_cur_rects.count(target) == 0) {
+      rect_matches_cur2last_[r] = target;
+      matched_cur_rects.emplace(target);
+      LOG(DEBUG) << boost::format(
+                        "No enough keypoints for matching, similiar rectangle "
+                        "coorsponding(F-%d<=>F-%d): "
+                        "R-%d<=>R-%d\n") %
+                        mCurrentFrame.mnId % mLastFrame.mnId % r % target;
+    }  // else 维持 -1
+  }    // 纠正完毕
+  // 设置矩形对应的建筑物 ID
+  mCurrentFrame.rect_to_buildings.resize(mCurrentFrame.tracking_rects_.size(),
+                                         -1);
+  for (int r = 0; r < rect_matches_cur2last_.size(); ++r) {
+    int ref_rect = rect_matches_cur2last_[r];
+    if (ref_rect < 0) {
+      int id = mpAtlas->addBuilding();
+      mCurrentFrame.rect_to_buildings[r] = id;
+      LOG(DEBUG) << boost::format("F-%d, rectangle-%d to new building-%d\n") %
+                        mCurrentFrame.mnId % r % id;
+    } else {
+      mCurrentFrame.rect_to_buildings[r] =
+          mLastFrame.rect_to_buildings[ref_rect];
+      LOG(DEBUG) << boost::format("F-%d, rectangle-%d to building-%d\n") %
+                        mCurrentFrame.mnId % r %
+                        mCurrentFrame.rect_to_buildings[r];
+    }
+  }  // detect new region as new building!
+  DBG("END to track rectangle in frame %d\n", this->mCurrentFrame.mnId);
 }
 
 }  // namespace ORB_SLAM3

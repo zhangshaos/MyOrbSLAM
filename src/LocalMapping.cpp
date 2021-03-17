@@ -29,7 +29,7 @@
 #include "ORBmatcher.h"
 #include "Optimizer.h"
 
-#define DEBUG
+#define __DEBUG__
 #include "vcc_zxm_utility.h"
 
 namespace ORB_SLAM3 {
@@ -444,10 +444,6 @@ void LocalMapping::CreateNewMapPoints() {
 
   const float ratioFactor = 1.5f * mpCurrentKeyFrame->mfScaleFactor;
 
-  // Search matches with epipolar restriction and triangulate
-  // 三角化针对当前 KF 和所有相邻的 KF！
-  // 但是我们只针对第一个 KF 计算 track 操作！
-  bool is_tracked = false;
   for (size_t i = 0; i < vpNeighKFs.size(); i++) {
     if (i > 0 && CheckNewKeyFrames())  // && (mnMatchesInliers>50))
       return;
@@ -483,100 +479,6 @@ void LocalMapping::CreateNewMapPoints() {
     matcher.SearchForTriangulation(mpCurrentKeyFrame, pKF2, F12,
                                    vMatchedIndices, false, bCoarse);
     assert(!vMatchedIndices.empty());
-
-    // Compute rectangle match from current KF to ref KF.
-    vector<int> rect_match(mpCurrentKeyFrame->tracking_rects_.size(), -1);
-    if (!is_tracked) {
-      DBG("LocalMappint: start to track KF %d\n", mpCurrentKeyFrame->mnId);
-
-      zxm::BestMatchGraph match;
-      for (auto& r : vMatchedIndices) {
-        if (r.first < 0 || r.second < 0) {
-          continue;
-        }  // skip not matched result.
-        vector<int> rects1 = mpCurrentKeyFrame->map_key2rectIDs_[r.first],
-                    rects2 = pKF2->map_key2rectIDs_[r.second];
-        for (int r1 : rects1) {
-          if (r1 < 0) {
-            continue;
-          }  // skip
-          for (int r2 : rects2) {
-            if (r2 < 0) {
-              continue;
-            }  // skip
-            match.AddRelation(r1, r2);
-          }
-        }
-      }  // fill all matches
-      for (int r = 0; r < rect_match.size(); ++r) {
-        vector<int> candinates = match.QueryCandinates(r);
-        int sz = candinates.size();
-        if (sz == 0) {
-          rect_match[r] = -1;
-        }  // cur KF rectangle r => nothing
-        else if (sz == 1) {
-          rect_match[r] = candinates.front();
-        } else {
-          // r => more than 1 rectangles, need to be decreased
-          float w = mpCurrentKeyFrame->tracking_rects_[r].width,
-                h = mpCurrentKeyFrame->tracking_rects_[r].height;
-          zxm::SimiliarRectSolver sv(w, h);
-          for (int i : candinates) {
-            w = pKF2->tracking_rects_[i].width;
-            h = pKF2->tracking_rects_[i].height;
-            sv.addSimiliarRect(i, w, h);
-          }
-          rect_match[r] = sv.getMostSimiliarRectID();
-        }
-      }                            // compute r => r(ref KF)
-      // 纠正没有特征点的矩形匹配关系
-      set<int> matched_cur_rects;  // 当前 KF 中已经被匹配的矩形索引
-      for (int r = 0; r < rect_match.size(); ++r) {
-        if (rect_match[r] >= 0) {
-          matched_cur_rects.emplace(rect_match[r]);
-          continue;
-        }
-        // TODO: 没有特征点计算矩形匹配关系时，追踪最像且没被匹配的矩形
-        float w = mpCurrentKeyFrame->tracking_rects_[r].width,
-              h = mpCurrentKeyFrame->tracking_rects_[r].height;
-        zxm::SimiliarRectSolver sv(w, h);
-        for (int i = 0; i < pKF2->tracking_rects_.size(); ++i) {
-          w = pKF2->tracking_rects_[i].width;
-          h = pKF2->tracking_rects_[i].height;
-          sv.addSimiliarRect(i, w, h);
-        }
-        int target = sv.getMostSimiliarRectID();
-        // 当前 KF 中的矩形 target 没有被匹配了，则
-        if (matched_cur_rects.count(target) == 0) {
-          rect_match[r] = target;
-          matched_cur_rects.emplace(target);
-        }  // else 维持 -1
-      } // 纠正完毕
-      BLOCK(for (int i = 0; i < rect_match.size(); ++i) {
-        printf("LocalMapping: KF-%d => KF-%d: R%d => R%d\n",
-               mpCurrentKeyFrame->mnId, pKF2->mnId, i, rect_match[i]);
-      });
-      // Now rect_match is ready! We should compute Current KF's building ID
-      // and update the global buildings.
-      for (int r = 0; r < rect_match.size(); ++r) {
-        int ref_rect = rect_match[r];
-        if (ref_rect < 0) {
-          int id = mpAtlas->addBuilding();
-          mpCurrentKeyFrame->map_rect2buildingID_[r] = id;
-        } else {
-          mpCurrentKeyFrame->map_rect2buildingID_[r] =
-              pKF2->map_rect2buildingID_[ref_rect];
-        }
-      }  // detect new region as new building!
-      BLOCK(
-          for (int i = 0; i < mpCurrentKeyFrame->tracking_rects_.size(); ++i) {
-            int building = mpCurrentKeyFrame->map_rect2buildingID_[i];
-            printf("LocalMappint KF-%d: Rect %d <=> Building %d\n",
-                   mpCurrentKeyFrame->mnId, i, building);
-          });
-
-      DBG("LocalMappint: end to track KF %d\n", mpCurrentKeyFrame->mnId);
-    }  // rect_match computed over!
 
     cv::Mat Rcw2 = pKF2->GetRotation();
     cv::Mat Rwc2 = Rcw2.t();
@@ -826,79 +728,23 @@ void LocalMapping::CreateNewMapPoints() {
           ratioDist > ratioOctave * ratioFactor)
         continue;
 
-      // Start to Simplify the rectangels of a key point.
-      vector<int>&idx1_rects = mpCurrentKeyFrame->map_key2rectIDs_[idx1],
-      &idx2_rects = pKF2->map_key2rectIDs_[idx2];
-      if (!is_tracked) {
-        vector<int> better_rects1, better_rects2;
-        if (idx1_rects.size() > 1 || idx2_rects.size() > 1) {
-          for (int r1 : idx1_rects) {
-            if (r1 < 0) {
-              continue;
-            }
-            int r2 = rect_match[r1];
-            if (r2 < 0) {
-              continue;
-            }
-            auto it = std::find(idx2_rects.begin(), idx2_rects.end(), r2),
-                 itend = idx2_rects.end();
-            if (it != itend) {
-              better_rects1.emplace_back(r1);
-              better_rects2.emplace_back(r2);
-            }
-          }
-          if (!better_rects1.empty()) {
-            swap(idx1_rects, better_rects1);
-          }
-          if (!better_rects2.empty()) {
-            swap(idx2_rects, better_rects2);
-          }
-        }  // basic simplify
-
-        // Further Simplifying for Current KF!
-        better_rects1.clear();
-        if (idx1_rects.size() > 1 && idx2_rects.size() == 1 &&
-            idx2_rects.front() >= 0) {
-          int id = pKF2->map_rect2buildingID_[idx2_rects.front()];
-          for (int r : idx1_rects) {
-            if (mpCurrentKeyFrame->map_rect2buildingID_[r] == id) {
-              better_rects1.emplace_back(r);
-            }
-          }
-          if (!better_rects1.empty()) {
-            swap(better_rects1, idx1_rects);
-          }
-        }
-      }  // rectangle simlifying over!
-
-      // Compute the building ID of a MapPoint!
-      int building_ID = -1;
-      if (idx1_rects.size() != 1 || idx2_rects.size() != 1) {
-        continue;
-      } else {
-        int r1 = idx1_rects.front(), r2 = idx2_rects.front();
-        if (r1 < 0 && r2 < 0) {
-          continue;
-        } else if (r1 < 0 && r2 >= 0) {
-          building_ID = pKF2->map_rect2buildingID_[r2];
-        } else if (r1 >= 0 && r2 < 0) {
-          building_ID = mpCurrentKeyFrame->map_rect2buildingID_[r1];
-        } else {  // r1 >= 0 && r2 >= 0
-          int id1 = mpCurrentKeyFrame->map_rect2buildingID_[r1],
-              id2 = pKF2->map_rect2buildingID_[r2];
-          if (id1 == id2) {
-            building_ID = id1;
-          } else {
-            continue;
-          }
-        }
+      // 确定 MP 的 building ID
+      vector<int> &cur_rects = mpCurrentKeyFrame->key_to_rects[idx1],
+                  &ref_rects = pKF2->key_to_rects[idx2];
+      set<int> buildings;
+      for (int r : cur_rects) {
+        buildings.emplace(mpCurrentKeyFrame->rect_to_building[r]);
       }
+      for (int r : ref_rects) {
+        buildings.emplace(pKF2->rect_to_building[r]);
+      }
+      vector<int> pt_buildings(buildings.begin(), buildings.end());
 
       // Triangulation is succesfull
       MapPoint* pMP =
           new MapPoint(x3D, mpCurrentKeyFrame, mpAtlas->GetCurrentMap());
 
-      pMP->building_id_ = building_ID;  // No need for lock.
+      pMP->building_ids_ = move(pt_buildings);
 
       pMP->AddObservation(mpCurrentKeyFrame, idx1);
       pMP->AddObservation(pKF2, idx2);
@@ -915,9 +761,6 @@ void LocalMapping::CreateNewMapPoints() {
 
       ++matched_count;
     }
-    // D_PRINTF("\n3D MapPoint generated(%d, %d): %d\n",
-    // mpCurrentKeyFrame->mnId, pKF2->mnId, matched_count);
-    is_tracked = true;
   }
 }
 

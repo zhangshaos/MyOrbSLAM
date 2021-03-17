@@ -108,7 +108,7 @@ public:
     System(const string &strVocFile, const string &strSettingsFile, const eSensor sensor, const bool bUseViewer = true, const int initFr = 0, const string &strSequence = std::string(), const string &strLoadingFile = std::string());
 
     // Only used by class MSLAM.
-    cv::Mat trackMSLAM(const cv::Mat& im, const vector<cv::Rect2f>& rects, vector<int> &rect2buildingID);
+    cv::Mat trackMSLAM(const cv::Mat& im, const vector<cv::Rect2f>& rects);
 
     // Proccess the given stereo frame. Images must be synchronized and rectified.
     // Input images: RGB (CV_8UC3) or grayscale (CV_8U). RGB is converted to grayscale.

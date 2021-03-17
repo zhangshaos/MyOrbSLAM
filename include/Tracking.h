@@ -123,13 +123,8 @@ public:
     Frame mCurrentFrame;
     Frame mLastFrame;
 
-    // Tracking IMAGE id, initialized and changed by System::trackMSLAM().
-    int64_t tracking_ID_;
-
     // Tracking rects, below two are initialized or set by System::trackMSLAM().
     vector<cv::Rect2f> tracking_rects_;
-    int max_building_ID_ = 0;
-    vector<int>* building_IDs_; // Map rect_ID => building_ID
 
     // Keypoint matches of last frame and current frame.
     vector<int> key_matches_cur2last_;

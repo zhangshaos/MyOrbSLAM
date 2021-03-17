@@ -11,6 +11,30 @@
 
 #include <opencv2/core.hpp>
 
+#ifdef __DEBUG__
+#include <cstdio>
+
+// Debug 缩写宏
+#define DBG(...)         \
+  do {                   \
+    printf(__VA_ARGS__); \
+  } while (0)
+
+#define BLOCK(s) \
+  do {           \
+    s            \
+  } while (0)
+
+// 辅助展示工具
+cv::Scalar GetBuildingColor(int64_t id);
+
+#else
+
+#define DBG(...)
+#define BLOCK(s)
+
+#endif  // __DEBUG__
+
 namespace zxm
 {
 
@@ -140,21 +164,5 @@ private:
 
 
 } // namespace zxm
-
-#ifdef DEBUG
-#include <cstdio>
-
-#define DBG(...) do{ \
-  printf(__VA_ARGS__); \
-}while(0)
-
-#define BLOCK(s) do{s}while(0)
-
-#else
-
-#define DBG(...)
-#define BLOCK(s)
-
-#endif // DEBUG
 
 #endif // !__VCC_ZXM_UTILITY_H__

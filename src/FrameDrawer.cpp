@@ -28,11 +28,11 @@
 #include "Tracking.h"
 #include "vcc_zxm_mslam.h"
 
-#define DEBUG
+
+#define __DEBUG__
 #include "vcc_zxm_utility.h"
 
-namespace ORB_SLAM3
-{
+namespace ORB_SLAM3 {
 
 FrameDrawer::FrameDrawer(Atlas* pAtlas) : both(false), mpAtlas(pAtlas) {
   mState = Tracking::SYSTEM_NOT_READY;
@@ -45,12 +45,12 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures) {
   // std::cout << "0" << std::endl;
   cv::Mat im;
   vector<cv::KeyPoint>
-    vIniKeys;  // Initialization: KeyPoints in reference frame
+      vIniKeys;  // Initialization: KeyPoints in reference frame
   vector<int>
-    vMatches;  // Initialization: correspondeces with reference keypoints
+      vMatches;  // Initialization: correspondeces with reference keypoints
   vector<cv::KeyPoint> vCurrentKeys;  // KeyPoints in current frame
   vector<bool> vbVO, vbMap;           // Tracked MapPoints in current frame
-  vector<pair<cv::Point2f, cv::Point2f> > vTracks;
+  vector<pair<cv::Point2f, cv::Point2f>> vTracks;
   int state;  // Tracking state
 
   Frame currentFrame;
@@ -61,12 +61,11 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures) {
   vector<MapPoint*> vpOutlierMPs;
   map<long unsigned int, cv::Point2f> mProjectPoints;
   map<long unsigned int, cv::Point2f> mMatchedInImage;
-  
-  // Tracking infos
-  vector<cv::Scalar> map_key2color;
+
+  // DEBUG Tracking infos
+  std::vector<vector<int>> key_to_buildings;
   vector<cv::Rect2f> rects;
-  Frame              last_frame;
-  int                track_id;
+  int track_id;
 
   // Copy variables within scoped mutex
   {
@@ -82,8 +81,7 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures) {
       vIniKeys = mvIniKeys;
       vMatches = mvIniMatches;
       vTracks = mvTracks;
-    }
-    else if (mState == Tracking::OK) {
+    } else if (mState == Tracking::OK) {
       vCurrentKeys = mvCurrentKeys;
       vbVO = mvbVO;
       vbMap = mvbMap;
@@ -98,21 +96,9 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures) {
       mMatchedInImage = mmMatchedInImage;
 
       // Fill tracking infos
-      // tracking_ID_;
-      rects       = rects_;
-      last_frame  = last_frame_;
-      for (int k = 0; k < map_key2building_.size(); ++k) {
-        int building = map_key2building_[k];
-        if (building < 0) {
-          map_key2color.emplace_back(0., 255., 0); // BGR, green!
-        }
-        else {
-          map_key2color.emplace_back(zxm::MSLAM::getBuildingColor(building));
-        }
-      }
-      assert(map_key2color.size() == map_key2building_.size());
-    }
-    else if (mState == Tracking::LOST) {
+      rects = rects_;
+      key_to_buildings = key_to_buildings_;
+    } else if (mState == Tracking::LOST) {
       vCurrentKeys = mvCurrentKeys;
     }
   }
@@ -128,11 +114,10 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures) {
                  cv::Scalar(0, 255, 0));
       }
     }
-    for (vector<pair<cv::Point2f, cv::Point2f> >::iterator it = vTracks.begin();
+    for (vector<pair<cv::Point2f, cv::Point2f>>::iterator it = vTracks.begin();
          it != vTracks.end(); it++)
       cv::line(im, (*it).first, (*it).second, cv::Scalar(0, 255, 0), 5);
-  }
-  else if (state == Tracking::OK && bOldFeatures)  // TRACKING GOTO HERE
+  } else if (state == Tracking::OK && bOldFeatures)  // TRACKING GOTO HERE
   {
     // Draw rects first
     for (auto& r : rects) {
@@ -143,7 +128,7 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures) {
     const float r = 5;
     int n = vCurrentKeys.size();
     assert(n == currentFrame.mvKeys.size());
-    assert(n == map_key2color.size());
+    assert(n == key_to_buildings.size());
     for (int i = 0; i < n; i++) {
       if (vbVO[i] || vbMap[i]) {
         // In OpenCV, original of coordinate is on the left-up corner.
@@ -157,12 +142,15 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures) {
         if (vbMap[i]) {
           // In OpenCV, the color is BGR.
           // After test, I found all points coming here!
-          auto& color = map_key2color[i];
+          cv::Scalar color(255, 255, 255);
+          if (key_to_buildings[i].size() == 1) {
+            color = ::GetBuildingColor(key_to_buildings[i][0]);
+          }
           cv::rectangle(im, pt1, pt2, color);
           cv::circle(im, vCurrentKeys[i].pt, 2, color, -1);
           mnTracked++;
-        }
-        else  // This is match to a "visual odometry" MapPoint created in the last frame
+        } else  // This is match to a "visual odometry" MapPoint created in the
+                // last frame
         {
           cv::rectangle(im, pt1, pt2, cv::Scalar(255, 0, 0));
           cv::circle(im, vCurrentKeys[i].pt, 2, cv::Scalar(255, 0, 0), -1);
@@ -171,8 +159,7 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures) {
       }
     }
     // std::cout << "2.3" << std::endl;
-  }
-  else if (state == Tracking::OK && !bOldFeatures) {
+  } else if (state == Tracking::OK && !bOldFeatures) {
     mnTracked = 0;
     int nTracked2 = 0;
     mnTrackedVO = 0;
@@ -191,7 +178,7 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures) {
     n = mMatchedInImage.size();
     // cout << "Number of matched points: " << n << endl;
     map<long unsigned int, cv::Point2f>::iterator it_match =
-      mMatchedInImage.begin();
+        mMatchedInImage.begin();
     while (it_match != mMatchedInImage.end()) {
       long unsigned int mp_id = it_match->first;
       cv::Point2f p_image = it_match->second;
@@ -201,8 +188,7 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures) {
         cv::Point2f p_proj = mMatchedInImage[mp_id];
         cv::line(im, p_proj, p_image, cv::Scalar(0, 255, 0), 2);
         nTracked2++;
-      }
-      else {
+      } else {
         cv::circle(im, p_image, 2, cv::Scalar(0, 0, 255), -1);
       }
 
@@ -233,9 +219,9 @@ cv::Mat FrameDrawer::DrawFrame(bool bOldFeatures) {
 cv::Mat FrameDrawer::DrawRightFrame() {
   cv::Mat im;
   vector<cv::KeyPoint>
-    vIniKeys;  // Initialization: KeyPoints in reference frame
+      vIniKeys;  // Initialization: KeyPoints in reference frame
   vector<int>
-    vMatches;  // Initialization: correspondeces with reference keypoints
+      vMatches;  // Initialization: correspondeces with reference keypoints
   vector<cv::KeyPoint> vCurrentKeys;  // KeyPoints in current frame
   vector<bool> vbVO, vbMap;           // Tracked MapPoints in current frame
   int state;                          // Tracking state
@@ -256,13 +242,11 @@ cv::Mat FrameDrawer::DrawRightFrame() {
       vCurrentKeys = mvCurrentKeysRight;
       vIniKeys = mvIniKeys;
       vMatches = mvIniMatches;
-    }
-    else if (mState == Tracking::OK) {
+    } else if (mState == Tracking::OK) {
       vCurrentKeys = mvCurrentKeysRight;
       vbVO = mvbVO;
       vbMap = mvbMap;
-    }
-    else if (mState == Tracking::LOST) {
+    } else if (mState == Tracking::LOST) {
       vCurrentKeys = mvCurrentKeysRight;
     }
   }  // destroy scoped mutex -> release mutex
@@ -279,8 +263,7 @@ cv::Mat FrameDrawer::DrawRightFrame() {
                  cv::Scalar(0, 255, 0));
       }
     }
-  }
-  else if (state == Tracking::OK)  // TRACKING
+  } else if (state == Tracking::OK)  // TRACKING
   {
     mnTracked = 0;
     mnTrackedVO = 0;
@@ -302,9 +285,8 @@ cv::Mat FrameDrawer::DrawRightFrame() {
           cv::circle(im, mvCurrentKeysRight[i].pt, 2, cv::Scalar(0, 255, 0),
                      -1);
           mnTracked++;
-        }
-        else  // This is match to a "visual odometry" MapPoint created in the
-             // last frame
+        } else  // This is match to a "visual odometry" MapPoint created in the
+                // last frame
         {
           cv::rectangle(im, pt1, pt2, cv::Scalar(255, 0, 0));
           cv::circle(im, mvCurrentKeysRight[i].pt, 2, cv::Scalar(255, 0, 0),
@@ -321,7 +303,8 @@ cv::Mat FrameDrawer::DrawRightFrame() {
   return imWithInfo;
 }
 
-void FrameDrawer::DrawTextInfo(int im_id, cv::Mat& im, int nState, cv::Mat& imText) {
+void FrameDrawer::DrawTextInfo(int im_id, cv::Mat& im, int nState,
+                               cv::Mat& imText) {
   stringstream s;
   if (nState == Tracking::NO_IMAGES_YET)
     s << " WAITING FOR IMAGES";
@@ -339,33 +322,31 @@ void FrameDrawer::DrawTextInfo(int im_id, cv::Mat& im, int nState, cv::Mat& imTe
       << ", Matches: " << mnTracked;
     if (mnTrackedVO > 0) s << ", + VO matches: " << mnTrackedVO;
     s << "TRACK ID: " << im_id;
-  }
-  else if (nState == Tracking::LOST) {
+  } else if (nState == Tracking::LOST) {
     s << " TRACK LOST. TRYING TO RELOCALIZE ";
-  }
-  else if (nState == Tracking::SYSTEM_NOT_READY) {
+  } else if (nState == Tracking::SYSTEM_NOT_READY) {
     s << " LOADING ORB VOCABULARY. PLEASE WAIT...";
   }
 
   int baseline = 0;
   cv::Size textSize =
-    cv::getTextSize(s.str(), cv::FONT_HERSHEY_PLAIN, 1, 1, &baseline);
+      cv::getTextSize(s.str(), cv::FONT_HERSHEY_PLAIN, 1, 1, &baseline);
 
   imText = cv::Mat(im.rows + textSize.height + 10, im.cols, im.type());
   im.copyTo(imText.rowRange(0, im.rows).colRange(0, im.cols));
   imText.rowRange(im.rows, imText.rows) =
-    cv::Mat::zeros(textSize.height + 10, im.cols, im.type());
+      cv::Mat::zeros(textSize.height + 10, im.cols, im.type());
   cv::putText(imText, s.str(), cv::Point(5, imText.rows - 5),
               cv::FONT_HERSHEY_PLAIN, 1, cv::Scalar(255, 255, 255), 1, 8);
 }
 
 void FrameDrawer::Update(Tracking* pTracker) {
-  unique_lock<mutex> lock1(mMutex, defer_lock), lock2(pTracker->mMutexTracks, defer_lock);
+  unique_lock<mutex> lock1(mMutex, defer_lock),
+      lock2(pTracker->mMutexTracks, defer_lock);
   lock(lock1, lock2);
 
-  tracking_ID_  = pTracker->tracking_ID_;
-  rects_        = pTracker->tracking_rects_;
-  last_frame_   = pTracker->mLastFrame;
+  tracking_ID_ = pTracker->mCurrentFrame.mnId;
+  rects_ = pTracker->tracking_rects_;
   pTracker->mImGray.copyTo(mIm);
   mvCurrentKeys = pTracker->mCurrentFrame.mvKeys;
 
@@ -373,8 +354,7 @@ void FrameDrawer::Update(Tracking* pTracker) {
     mvCurrentKeysRight = pTracker->mCurrentFrame.mvKeysRight;
     pTracker->mImRight.copyTo(mImRight);
     N = mvCurrentKeys.size() + mvCurrentKeysRight.size();
-  }
-  else {
+  } else {
     N = mvCurrentKeys.size();
   }
 
@@ -402,28 +382,25 @@ void FrameDrawer::Update(Tracking* pTracker) {
   // mvProjectPoints.clear();
   // mvProjectPoints.reserve(N);
 
-  // Compute <map_key2building_>
-  vector<vector<int>>& map_key2rects = mCurrentFrame.key2rects_idx_;
-  vector<int>& map_rect2building = *(pTracker->building_IDs_);
-  map_key2building_.clear();
-  for (int k = 0; k < map_key2rects.size(); ++k) {
-    vector<int>& rects = map_key2rects[k];
-    int building = -1;
-    // find first non -1 rectangle
-    for (int r : rects) {
-      if (r >= 0) {
-        building = map_rect2building[r];
-        break;
-      }
+  // 计算 key_to_buildings
+  key_to_buildings_.clear();
+  std::vector<std::vector<int>> &key_to_rects = mCurrentFrame.key2rects_idx_;
+  std::vector<int> &rect_to_building = mCurrentFrame.rect_to_buildings;
+  key_to_buildings_.resize(key_to_rects.size());
+  for (int k = 0; k < key_to_rects.size(); ++k) {
+    auto& rs = key_to_rects[k];
+    std::set<int> buildings;
+    for (int r : rs) {
+      int b = rect_to_building[r];
+      buildings.emplace(b);
     }
-    map_key2building_.emplace_back(building);
-  } // <map_key2building_> filled over!
+    key_to_buildings_[k] = std::vector<int>(buildings.begin(), buildings.end());
+  } // 计算 over！
 
   if (pTracker->mLastProcessedState == Tracking::NOT_INITIALIZED) {
     mvIniKeys = pTracker->mInitialFrame.mvKeys;
     mvIniMatches = pTracker->mvIniMatches;
-  }
-  else if (pTracker->mLastProcessedState == Tracking::OK) {
+  } else if (pTracker->mLastProcessedState == Tracking::OK) {
     for (int i = 0; i < N; i++) {
       MapPoint* pMP = pTracker->mCurrentFrame.mvpMapPoints[i];
       if (pMP) {
@@ -434,8 +411,7 @@ void FrameDrawer::Update(Tracking* pTracker) {
             mvbVO[i] = true;
 
           mmMatchedInImage[pMP->mnId] = mvCurrentKeys[i].pt;
-        }
-        else {
+        } else {
           mvpOutlierMPs.push_back(pMP);
           mvOutlierKeys.push_back(mvCurrentKeys[i]);
         }

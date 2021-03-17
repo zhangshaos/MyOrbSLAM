@@ -1,45 +1,43 @@
 ﻿/**
-* This file is part of ORB-SLAM3
-*
-* Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez Rodríguez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
-* Copyright (C) 2014-2016 Raúl Mur-Artal, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
-*
-* ORB-SLAM3 is free software: you can redistribute it and/or modify it under the terms of the GNU General Public
-* License as published by the Free Software Foundation, either version 3 of the License, or
-* (at your option) any later version.
-*
-* ORB-SLAM3 is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
-* the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-* GNU General Public License for more details.
-*
-* You should have received a copy of the GNU General Public License along with ORB-SLAM3.
-* If not, see <http://www.gnu.org/licenses/>.
-*/
-
+ * This file is part of ORB-SLAM3
+ *
+ * Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez
+ * Rodríguez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
+ * Copyright (C) 2014-2016 Raúl Mur-Artal, José M.M. Montiel and Juan D. Tardós,
+ * University of Zaragoza.
+ *
+ * ORB-SLAM3 is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either version 3 of the License, or (at your option) any later
+ * version.
+ *
+ * ORB-SLAM3 is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along with
+ * ORB-SLAM3. If not, see <http://www.gnu.org/licenses/>.
+ */
 
 #ifndef KEYFRAME_H
 #define KEYFRAME_H
 
-#include "MapPoint.h"
-#include "Thirdparty/DBoW2/DBoW2/BowVector.h"
-#include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
-#include "ORBVocabulary.h"
-#include "ORBextractor.h"
-#include "Frame.h"
-#include "KeyFrameDatabase.h"
-#include "ImuTypes.h"
-
-#include "GeometricCamera.h"
-
+#include <boost/serialization/base_object.hpp>
+#include <boost/serialization/map.hpp>
+#include <boost/serialization/vector.hpp>
 #include <mutex>
 
-#include <boost/serialization/base_object.hpp>
-#include <boost/serialization/vector.hpp>
-#include <boost/serialization/map.hpp>
+#include "Frame.h"
+#include "GeometricCamera.h"
+#include "ImuTypes.h"
+#include "KeyFrameDatabase.h"
+#include "MapPoint.h"
+#include "ORBVocabulary.h"
+#include "ORBextractor.h"
+#include "Thirdparty/DBoW2/DBoW2/BowVector.h"
+#include "Thirdparty/DBoW2/DBoW2/FeatureVector.h"
 
-
-namespace ORB_SLAM3
-{
+namespace ORB_SLAM3 {
 
 class Map;
 class MapPoint;
@@ -48,30 +46,27 @@ class KeyFrameDatabase;
 
 class GeometricCamera;
 
-class KeyFrame
-{
-
-
-  template<class Archive>
+class KeyFrame {
+  template <class Archive>
   void serializeMatrix(Archive& ar, cv::Mat& mat, const unsigned int version) {
     int cols, rows, type;
     bool continuous;
 
     if (Archive::is_saving::value) {
-      cols = mat.cols; rows = mat.rows; type = mat.type();
+      cols = mat.cols;
+      rows = mat.rows;
+      type = mat.type();
       continuous = mat.isContinuous();
     }
 
     ar& cols& rows& type& continuous;
 
-    if (Archive::is_loading::value)
-      mat.create(rows, cols, type);
+    if (Archive::is_loading::value) mat.create(rows, cols, type);
 
     if (continuous) {
       const unsigned int data_size = rows * cols * mat.elemSize();
       ar& boost::serialization::make_array(mat.ptr(), data_size);
-    }
-    else {
+    } else {
       const unsigned int row_size = cols * mat.elemSize();
       for (int i = 0; i < rows; i++) {
         ar& boost::serialization::make_array(mat.ptr(i), row_size);
@@ -79,9 +74,9 @@ class KeyFrame
     }
   }
 
-
-  template<class Archive>
-  void serializeMatrix(Archive& ar, const cv::Mat& mat, const unsigned int version) {
+  template <class Archive>
+  void serializeMatrix(Archive& ar, const cv::Mat& mat,
+                       const unsigned int version) {
     cv::Mat matAux = mat;
 
     serializeMatrix(ar, matAux, version);
@@ -94,8 +89,9 @@ class KeyFrame
   }
 
   friend class boost::serialization::access;
-  template<class Archive>
-  void serializeVectorKeyPoints(Archive& ar, const vector<cv::KeyPoint>& vKP, const unsigned int version) {
+  template <class Archive>
+  void serializeVectorKeyPoints(Archive& ar, const vector<cv::KeyPoint>& vKP,
+                                const unsigned int version) {
     int NumEl;
 
     if (Archive::is_saving::value) {
@@ -105,17 +101,14 @@ class KeyFrame
     ar& NumEl;
 
     vector<cv::KeyPoint> vKPaux = vKP;
-    if (Archive::is_loading::value)
-      vKPaux.reserve(NumEl);
+    if (Archive::is_loading::value) vKPaux.reserve(NumEl);
 
     for (int i = 0; i < NumEl; ++i) {
       cv::KeyPoint KPi;
 
-      if (Archive::is_loading::value)
-        KPi = cv::KeyPoint();
+      if (Archive::is_loading::value) KPi = cv::KeyPoint();
 
-      if (Archive::is_saving::value)
-        KPi = vKPaux[i];
+      if (Archive::is_saving::value) KPi = vKPaux[i];
 
       ar& KPi.angle;
       ar& KPi.response;
@@ -125,10 +118,8 @@ class KeyFrame
       ar& KPi.class_id;
       ar& KPi.octave;
 
-      if (Archive::is_loading::value)
-        vKPaux.push_back(KPi);
+      if (Archive::is_loading::value) vKPaux.push_back(KPi);
     }
-
 
     if (Archive::is_loading::value) {
       vector<cv::KeyPoint>* ptr;
@@ -137,7 +128,7 @@ class KeyFrame
     }
   }
 
-  template<class Archive>
+  template <class Archive>
   void serialize(Archive& ar, const unsigned int version) {
     ar& mnId;
     ar& const_cast<long unsigned int&>(mnFrameId);
@@ -269,12 +260,15 @@ class KeyFrame
     ar & bImu;
     serializeMatrix(ar, Vw, version);
     serializeMatrix(ar, Owb, version);*/
-
   }
 
-public:
+ public:
   KeyFrame();
   KeyFrame(Frame& F, Map* pMap, KeyFrameDatabase* pKFDB);
+
+  // Tracking info from class Frame
+  std::vector<std::vector<int>> key_to_rects;
+  std::vector<int> rect_to_building;
 
   // Pose functions
   void SetPose(const cv::Mat& Tcw);
@@ -301,7 +295,7 @@ public:
   void UpdateConnections(bool upParent = true);
   void UpdateBestCovisibles();
   std::set<KeyFrame*> GetConnectedKeyFrames();
-  std::vector<KeyFrame* > GetVectorCovisibleKeyFrames();
+  std::vector<KeyFrame*> GetVectorCovisibleKeyFrames();
   std::vector<KeyFrame*> GetBestCovisibilityKeyFrames(const int& N);
   std::vector<KeyFrame*> GetCovisiblesByWeight(const int& w);
   int GetWeight(KeyFrame* pKF);
@@ -335,7 +329,9 @@ public:
   MapPoint* GetMapPoint(const size_t& idx);
 
   // KeyPoint functions
-  std::vector<size_t> GetFeaturesInArea(const float& x, const float& y, const float& r, const bool bRight = false) const;
+  std::vector<size_t> GetFeaturesInArea(const float& x, const float& y,
+                                        const float& r,
+                                        const bool bRight = false) const;
   cv::Mat UnprojectStereo(int i);
 
   // Image
@@ -352,9 +348,7 @@ public:
   // Compute Scene Depth (q=2 median). Used in monocular.
   float ComputeSceneMedianDepth(const int q);
 
-  static bool weightComp(int a, int b) {
-    return a > b;
-  }
+  static bool weightComp(int a, int b) { return a > b; }
 
   static bool lId(KeyFrame* pKF1, KeyFrame* pKF2) {
     return pKF1->mnId < pKF2->mnId;
@@ -369,24 +363,23 @@ public:
   IMU::Bias GetImuBias();
 
   bool ProjectPointDistort(MapPoint* pMP, cv::Point2f& kp, float& u, float& v);
-  bool ProjectPointUnDistort(MapPoint* pMP, cv::Point2f& kp, float& u, float& v);
+  bool ProjectPointUnDistort(MapPoint* pMP, cv::Point2f& kp, float& u,
+                             float& v);
 
-  void PreSave(set<KeyFrame*>& spKF, set<MapPoint*>& spMP, set<GeometricCamera*>& spCam);
-  void PostLoad(map<long unsigned int, KeyFrame*>& mpKFid, map<long unsigned int, MapPoint*>& mpMPid, map<unsigned int, GeometricCamera*>& mpCamId);
-
+  void PreSave(set<KeyFrame*>& spKF, set<MapPoint*>& spMP,
+               set<GeometricCamera*>& spCam);
+  void PostLoad(map<long unsigned int, KeyFrame*>& mpKFid,
+                map<long unsigned int, MapPoint*>& mpMPid,
+                map<unsigned int, GeometricCamera*>& mpCamId);
 
   void SetORBVocabulary(ORBVocabulary* pORBVoc);
   void SetKeyFrameDatabase(KeyFrameDatabase* pKFDB);
 
   bool bImu;
 
-  // The following variables are accesed from only 1 thread or never change (no mutex needed).
-public:
-  std::vector<std::vector<int>> map_key2rectIDs_;     // Only accessed from LocalMappint
-  std::vector<cv::Rect2f>       tracking_rects_;      // Never changed
-  std::vector<int>              map_rect2buildingID_; // Only accessed from LocalMappint
-  // The above two variables are copied from class Frame, see Frame for usage.
-
+  // The following variables are accesed from only 1 thread or never change (no
+  // mutex needed).
+ public:
   static long unsigned int nNextId;
   long unsigned int mnId;
   const long unsigned int mnFrameId;
@@ -407,7 +400,7 @@ public:
   long unsigned int mnBALocalForKF;
   long unsigned int mnBAFixedForKF;
 
-  //Number of optimizations by BA(amount of iterations in BA)
+  // Number of optimizations by BA(amount of iterations in BA)
   long unsigned int mnNumberOfOpt;
 
   // Variables used by the keyframe database
@@ -425,7 +418,6 @@ public:
   float mPlaceRecognitionScore;
 
   bool mbCurrentPlaceRecognition;
-
 
   // Variables used by loop closing
   cv::Mat mTcwGBA;
@@ -459,11 +451,11 @@ public:
   // KeyPoints, stereo coordinate and descriptors (all associated by an index)
   const std::vector<cv::KeyPoint> mvKeys;
   const std::vector<cv::KeyPoint> mvKeysUn;
-  const std::vector<float> mvuRight; // negative value for monocular points
-  const std::vector<float> mvDepth; // negative value for monocular points
+  const std::vector<float> mvuRight;  // negative value for monocular points
+  const std::vector<float> mvDepth;   // negative value for monocular points
   const cv::Mat mDescriptors;
 
-  //BoW
+  // BoW
   DBoW2::BowVector mBowVec;
   DBoW2::FeatureVector mFeatVec;
 
@@ -492,27 +484,26 @@ public:
   IMU::Preintegrated* mpImuPreintegrated;
   IMU::Calib mImuCalib;
 
-
   unsigned int mnOriginMapId;
 
   string mNameFile;
 
   int mnDataset;
 
-  std::vector <KeyFrame*> mvpLoopCandKFs;
-  std::vector <KeyFrame*> mvpMergeCandKFs;
+  std::vector<KeyFrame*> mvpLoopCandKFs;
+  std::vector<KeyFrame*> mvpMergeCandKFs;
 
   bool mbHasHessian;
   cv::Mat mHessianPose;
 
-  // The following variables need to be accessed trough a mutex to be thread safe.
-protected:
-
+  // The following variables need to be accessed trough a mutex to be thread
+  // safe.
+ protected:
   // SE3 Pose and camera center
   cv::Mat Tcw;
   cv::Mat Twc;
   cv::Mat Ow;
-  cv::Mat Cw; // Stereo middel point. Only for visualization
+  cv::Mat Cw;  // Stereo middel point. Only for visualization
 
   // IMU position
   cv::Mat Owb;
@@ -533,10 +524,11 @@ protected:
   ORBVocabulary* mpORBvocabulary;
 
   // Grid over the image to speed up feature matching
-  std::vector< std::vector <std::vector<size_t> > > mGrid;
+  std::vector<std::vector<std::vector<size_t> > > mGrid;
 
   std::map<KeyFrame*, int> mConnectedKeyFrameWeights;
-  std::vector<KeyFrame*> mvpOrderedConnectedKeyFrames;  // Neibor KeyFrame when creating MapPoint!!！
+  std::vector<KeyFrame*> mvpOrderedConnectedKeyFrames;  // Neibor KeyFrame when
+                                                        // creating MapPoint!!！
   std::vector<int> mvOrderedWeights;
   // For save relation without pointer, this is necessary for save/load function
   std::map<long unsigned int, int> mBackupConnectedKeyFrameIdWeights;
@@ -558,11 +550,11 @@ protected:
   bool mbToBeErased;
   bool mbBad;
 
-  float mHalfBaseline; // Only for visualization
+  float mHalfBaseline;  // Only for visualization
 
   Map* mpMap;
 
-  std::mutex mMutexPose; // for pose, velocity and biases
+  std::mutex mMutexPose;  // for pose, velocity and biases
   std::mutex mMutexConnections;
   std::mutex mMutexFeatures;
   std::mutex mMutexMap;
@@ -575,22 +567,22 @@ protected:
   // Backup for Cameras
   unsigned int mnBackupIdCamera, mnBackupIdCamera2;
 
-public:
-  GeometricCamera* mpCamera, * mpCamera2;
+ public:
+  GeometricCamera *mpCamera, *mpCamera2;
 
-  //Indexes of stereo observations correspondences
+  // Indexes of stereo observations correspondences
   std::vector<int> mvLeftToRightMatch, mvRightToLeftMatch;
 
-  //Transformation matrix between cameras in stereo fisheye
+  // Transformation matrix between cameras in stereo fisheye
   cv::Mat mTlr;
   cv::Mat mTrl;
 
-  //KeyPoints in the right image (for stereo fisheye, coordinates are needed)
+  // KeyPoints in the right image (for stereo fisheye, coordinates are needed)
   const std::vector<cv::KeyPoint> mvKeysRight;
 
   const int NLeft, NRight;
 
-  std::vector< std::vector <std::vector<size_t> > > mGridRight;
+  std::vector<std::vector<std::vector<size_t> > > mGridRight;
 
   cv::Mat GetRightPose();
   cv::Mat GetRightPoseInverse();
@@ -599,23 +591,24 @@ public:
   cv::Mat GetRightRotation();
   cv::Mat GetRightTranslation();
 
-  cv::Mat imgLeft, imgRight; //TODO Backup??
+  cv::Mat imgLeft, imgRight;  // TODO Backup??
 
   void PrintPointDistribution() {
     int left = 0, right = 0;
     int Nlim = (NLeft != -1) ? NLeft : N;
     for (int i = 0; i < N; i++) {
       if (mvpMapPoints[i]) {
-        if (i < Nlim) left++;
-        else right++;
+        if (i < Nlim)
+          left++;
+        else
+          right++;
       }
     }
-    cout << "Point distribution in KeyFrame: left-> " << left << " --- right-> " << right << endl;
+    cout << "Point distribution in KeyFrame: left-> " << left << " --- right-> "
+         << right << endl;
   }
-
-
 };
 
-} //namespace ORB_SLAM
+}  // namespace ORB_SLAM3
 
-#endif // KEYFRAME_H
+#endif  // KEYFRAME_H

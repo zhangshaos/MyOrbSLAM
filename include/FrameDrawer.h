@@ -60,10 +60,10 @@ protected:
     int N;
     vector<cv::KeyPoint> mvCurrentKeys,mvCurrentKeysRight;
 
-    int64_t             tracking_ID_;
-    vector<cv::Rect2f>  rects_;           // for DEBUG
-    vector<int>         map_key2building_;
-    Frame               last_frame_;      // for DEBUG
+    // DUBUG INFO!!!
+    int64_t                   tracking_ID_;
+    vector<cv::Rect2f>        rects_;           // for DEBUG
+    std::vector<vector<int>>  key_to_buildings_;
 
     vector<bool> mvbMap, mvbVO;   // mvbMap means point's observations more than 0.
     bool mbOnlyTracking;
