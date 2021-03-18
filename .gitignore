@@ -3,3 +3,7 @@ build/
 bin/
 lib/
 config.h
+example/demo/
+example/vs_demo/
+.vs/
+CMakeSettings.json

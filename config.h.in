@@ -1,4 +1,5 @@
 #pragma once
 #define SLAM_VOC_FILE      "@CONFIG_SLAM_VOC_FILE@"
 #define SLAM_SETTING_FILE  "@CONFIG_SLAM_SETTING_FILE@"
+#define LOG_CONF           "@CONFIG_LOG_CONF@"
 #define USE_VIEWER         @CONFIG_USE_VIEWER@

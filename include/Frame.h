@@ -1,4 +1,4 @@
-/**
+﻿/**
 * This file is part of ORB-SLAM3
 *
 * Copyright (C) 2017-2020 Carlos Campos, Richard Elvira, Juan J. Gómez Rodríguez, José M.M. Montiel and Juan D. Tardós, University of Zaragoza.
@@ -59,7 +59,11 @@ public:
     Frame(const cv::Mat &imGray, const cv::Mat &imDepth, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, cv::Mat &K, cv::Mat &distCoef, const float &bf, const float &thDepth, GeometricCamera* pCamera,Frame* pPrevF = static_cast<Frame*>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
 
     // Constructor for Monocular cameras.
-    Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, GeometricCamera* pCamera, cv::Mat &distCoef, const float &bf, const float &thDepth, Frame* pPrevF = static_cast<Frame*>(NULL), const IMU::Calib &ImuCalib = IMU::Calib());
+    Frame(const cv::Mat &imGray, const double &timeStamp, ORBextractor* extractor,ORBVocabulary* voc, GeometricCamera* pCamera, cv::Mat &distCoef, const float &bf, const float &thDepth,
+      const std::vector<cv::Rect2f>& tracking_rects = std::vector<cv::Rect2f>(),
+      Frame* pPrevF = static_cast<Frame*>(NULL),
+      const IMU::Calib &ImuCalib = IMU::Calib()
+    );
 
     // Destructor
     // ~Frame();
@@ -215,6 +219,11 @@ public:
     // Pointer to previous frame
     Frame* mpPrevFrame;
     IMU::Preintegrated* mpImuPreintegratedFrame;
+
+    // tracking rect area
+    vector<cv::Rect2f> tracking_rects_;
+    vector<vector<int>> key2rects_idx_;  // key2rect_idx_[i] means the i-th keypoint belong to key2rect_idx_[i]-th tracking rects(more one maybe).
+    vector<int> rect_to_buildings;
 
     // Current and Next Frame id.
     static long unsigned int nNextId;

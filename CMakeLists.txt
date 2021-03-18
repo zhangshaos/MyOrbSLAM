@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.10)
-project(MyOrbSLAM VERSION 0.0.1)
+#set(CMAKE_TOOLCHAIN_FILE "E:/vcpkg-for-developer/scripts/buildsystems/vcpkg.cmake")
+project(MyOrbSLAM VERSION 0.0.3)
 
 IF(NOT CMAKE_BUILD_TYPE)
   SET(CMAKE_BUILD_TYPE Release)
@@ -34,6 +35,12 @@ if (CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
   # (CMake sets /MD by default, but for example Pangolin uses /MT by default)
   #set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
   #set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+
+  # Some useless Warning in visual studio
+  # 4267;4244;4305; These are implicit type conversion!!!
+  add_compile_options(/wd4267)
+  add_compile_options(/wd4244)
+  add_compile_options(/wd4305)
 endif()
 
 # fix big obj file fatal error 
@@ -65,16 +72,21 @@ MESSAGE(STATUS "OpenCV VERSION: ${OpenCV_VERSION}")
 find_package(Eigen3 3.1.0 REQUIRED)
 
 find_package(Pangolin REQUIRED)
+message(STATUS "Pangolin_INCLUDE_DIRS ${Pangolin_INCLUDE_DIRS}")
+message(STATUS "Pangolin_LIBRARIES ${Pangolin_LIBRARIES}")
 
-find_package(Boost REQUIRED COMPONENTS serialization)
+find_package(Boost REQUIRED)
 MESSAGE(STATUS "Boost_LIBRARIES: ${Boost_LIBRARIES}")
 
 set(OPENSSL_USE_STATIC_LIBS TRUE)
 find_package(OpenSSL REQUIRED) # for crypto library
 
+find_package(easyloggingpp REQUIRED)
+
 # set config file
 set(CONFIG_SLAM_VOC_FILE "${PROJECT_SOURCE_DIR}/config/ORBvoc.bin")
 set(CONFIG_SLAM_SETTING_FILE "${PROJECT_SOURCE_DIR}/config/EuRoC.yaml")
+set(CONFIG_LOG_CONF "${PROJECT_SOURCE_DIR}/config/log.conf")
 set(CONFIG_USE_VIEWER true)
 configure_file("${PROJECT_SOURCE_DIR}/config.h.in"
                "${PROJECT_SOURCE_DIR}/config.h")
@@ -86,11 +98,12 @@ include_directories(
   ${EIGEN3_INCLUDE_DIR}
   ${Pangolin_INCLUDE_DIRS}
   ${OPENSSL_INCLUDE_DIR}
+  ${EASYLOGGINGPP_INCLUDE}
 )
 
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib/${CMAKE_BUILD_TYPE})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/lib/${CMAKE_BUILD_TYPE})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build/${CMAKE_BUILD_TYPE})
 
 add_library(${PROJECT_NAME} SHARED
   src/System.cpp
@@ -150,7 +163,11 @@ add_library(${PROJECT_NAME} SHARED
   src/TwoViewReconstruction.cpp
   include/vcc_zxm_mslam.h
   include/vcc_slam_interface.h
+  include/vcc_zxm_utility.h
+  include/vcc_debug.h
   src/vcc_zxm_mslam.cpp
+  src/vcc_zxm_utility.cpp
+  src/vcc_debug.cpp
   config.h
 )
 
@@ -166,6 +183,7 @@ target_link_libraries(${PROJECT_NAME}
   g2o
   ${Boost_LIBRARIES}
   ${OPENSSL_CRYPTO_LIBRARY}
+  ${EASYLOGGINGPP_LIB}
 )
 
 # Build examples
