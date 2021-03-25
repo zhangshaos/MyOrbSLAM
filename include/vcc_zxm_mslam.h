@@ -37,6 +37,14 @@ class MSLAM : public ISLAM {
   virtual std::vector<std::vector<Eigen::Vector3f>> getCurrentBuildings()
       override;
 
+  // Override with mask to decreasing the num of keypoints.
+  // And this func will create keypoint pngs.
+  // `color` 从低到高分别是 B G R，即 R 在最高位 [2] 上
+  // `toshow` 返回展示的图片
+  virtual std::vector<std::vector<Eigen::Vector3f>> getCurrentBuildings(
+      cv::Mat mask, const std::set<std::array<unsigned char, 3>>& colors,
+      cv::Mat& toshow) override;
+
   // Shut down the slam system.
   virtual void shutDown() override;
 
@@ -50,7 +58,7 @@ class MSLAM : public ISLAM {
   // World coordinate position, see track() for usage.
   Eigen::Isometry3f init_frame_pose_;
   Eigen::Vector3f last_world_translation_,
-                  last_slam_translation_;  // to compute scale_, see track() for usage.
+      last_slam_translation_;  // to compute scale_, see track() for usage.
   size_t old_points_count_ = 0,
          cur_points_count_ = 0;  // valid whether mapoints' count had changed.
   float scale_ = 0.f;  // scale from SLAM coordinate to Real World coordinate.

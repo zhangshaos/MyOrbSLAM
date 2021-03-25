@@ -6,18 +6,18 @@
 Camera.type: "PinHole"
 
 # Camera calibration and distortion parameters (OpenCV) 
-Camera.fx: 480.0 #400 测试 airsim 场景.0 # 576.136966392455 测试 3d_car_instance_sample - train 数据 #450.0 Main3 测试 YRS_LYL_0122 - 112MEDIA - small 数据 #480.0 Main2 测试 SZU_video - DJI_0520 - szu 数据
-Camera.fy: 405.0 #400.0 #576.4689170155 #450.0 #405.0
-Camera.cx: 480.0 #400.0 #423.0 #450.0 #480.0
-Camera.cy: 270.0 #400.0 #339.0 #300.0 #270.0
+Camera.fx: 400.0 #400 测试 airsim 场景.0 # 576.136966392455 测试 3d_car_instance_sample - train 数据 #450.0 Main3 测试 YRS_LYL_0122 - 112MEDIA - small 数据 #480.0 Main2 测试 SZU_video - DJI_0520 - szu 数据
+Camera.fy: 400.0 #400.0 #576.4689170155 #450.0 #405.0
+Camera.cx: 400.0 #400.0 #423.0 #450.0 #480.0
+Camera.cy: 400.0 #400.0 #339.0 #300.0 #270.0
 
 Camera.k1: 0.0 #-0.28340811
 Camera.k2: 0.0 #0.07395907
 Camera.p1: 0.0 #0.00019359
 Camera.p2: 0.0 #1.76187114e-05
 
-Camera.width: 960 #800 #846 #900 #960
-Camera.height: 540 #800 #678 #600 #540
+Camera.width: 800 #800 #846 #900 #960
+Camera.height: 800 #800 #678 #600 #540
 
 # Camera frames per second 
 Camera.fps: 20.0
@@ -30,7 +30,7 @@ Camera.RGB: 1
 #--------------------------------------------------------------------------------------------
 
 # ORB Extractor: Number of features per image
-ORBextractor.nFeatures: 1500
+ORBextractor.nFeatures: 2500
 
 # ORB Extractor: Scale factor between levels in the scale pyramid 	
 ORBextractor.scaleFactor: 1.2

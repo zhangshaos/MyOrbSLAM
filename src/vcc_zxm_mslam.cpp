@@ -120,6 +120,63 @@ std::vector<std::vector<Eigen::Vector3f>> zxm::MSLAM::getCurrentBuildings() {
   return points;
 }
 
+// 判断某个点是否在感兴趣区域中
+struct FunKeyPointArea {
+  FunKeyPointArea(cv::Mat mask,
+                  const std::set<std::array<unsigned char, 3>>& colors) {
+    _mask = mask.clone();
+    _colors = colors;
+  }
+  bool contain(const cv::Point2f& p) {
+    int x = p.x, y = p.y;
+    unsigned char* bgr = _mask.ptr<unsigned char>(y, x);
+    std::array<unsigned char, 3> color{bgr[2], bgr[1],
+                                       bgr[0]};  // 从低位到高位：B，G，R
+    return _colors.count(color) > 0;
+  }
+
+ private:
+  cv::Mat _mask;
+  std::set<std::array<unsigned char, 3>> _colors;
+};
+
+std::vector<std::vector<Eigen::Vector3f>> zxm::MSLAM::getCurrentBuildings(
+    cv::Mat mask, const std::set<std::array<unsigned char, 3>>& colors,
+    cv::Mat& toshow) {
+  // 构造感兴趣区域
+  FunKeyPointArea fun_area(mask, colors);
+  // 获取 MapPoint 数据
+  auto buildings = slam_system_->mpAtlas->getAllBuildings();
+  auto r2b = slam_system_->mpTracker->mCurrentFrame.rect_to_buildings;
+  std::vector<std::vector<Eigen::Vector3f>> points(r2b.size());
+  for (int r = 0; r < r2b.size(); ++r) {
+    int b = r2b[r];
+    if (buildings.count(b)) {
+      auto& pts = buildings[b];
+      // 将好的点加入
+      for (auto pt : pts) {
+        if (pt->isBad()) continue;
+        // 构造不同类型的点数据
+        Eigen::Vector3f w_pos;
+        cv::cv2eigen(pt->GetWorldPos(), w_pos);
+        Eigen::Vector3f c_pos = T_c_w_ * w_pos;  // 当前相机坐标系下
+        cv::Mat1f c_pos_mat;
+        cv::eigen2cv(c_pos, c_pos_mat);
+        cv::Mat1f h_uv =
+            slam_system_->mpTracker->getK() * c_pos_mat;  // 其次像素坐标
+        cv::Point2f uv(h_uv[0][0] / h_uv[2][0], h_uv[1][0] / h_uv[2][0]);
+        auto& rect = slam_system_->mpTracker->tracking_rects_[r];
+        if (rect.contains(uv) && fun_area.contain(uv)) {
+          points[r].emplace_back(c_pos);
+          // 输出图片数据
+          cv::circle(toshow, uv, 2, ::GetBuildingColor(b), -1);
+        }
+      }
+    }
+  }
+  return points;
+}
+
 void zxm::MSLAM::shutDown() { slam_system_->Shutdown(); }
 
 extern "C" {
