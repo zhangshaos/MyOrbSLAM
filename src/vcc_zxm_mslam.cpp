@@ -72,6 +72,14 @@ bool zxm::MSLAM::isCloudPointsChanged() {
   return ans;
 }
 
+Eigen::Matrix3f zxm::MSLAM::getIntrinsicK() {
+  Eigen::Matrix3f K; // cv::Mat 是 float 嘛？
+  cv::cv2eigen(slam_system_->mpTracker->getK(), K);
+  return K;
+}
+
+Eigen::Isometry3f zxm::MSLAM::getOutwardTcw() { return T_c_w_; }
+
 std::map<int, std::vector<Eigen::Vector3f>> zxm::MSLAM::getAllBuildings(
     bool use_real_coordinate) {
   std::map<int, std::vector<Eigen::Vector3f>> map_buildingID2points;
@@ -93,7 +101,8 @@ std::map<int, std::vector<Eigen::Vector3f>> zxm::MSLAM::getAllBuildings(
   return map_buildingID2points;
 }
 
-std::vector<std::vector<Eigen::Vector3f>> zxm::MSLAM::getCurrentBuildings() {
+std::vector<std::vector<Eigen::Vector3f>> zxm::MSLAM::getCurrentBuildings(
+    bool use_real_coordinate) {
   auto buildings = slam_system_->mpAtlas->getAllBuildings();
   auto r2b = slam_system_->mpTracker->mCurrentFrame.rect_to_buildings;
   std::vector<std::vector<Eigen::Vector3f>> points(r2b.size());
@@ -106,6 +115,7 @@ std::vector<std::vector<Eigen::Vector3f>> zxm::MSLAM::getCurrentBuildings() {
         if (pt->isBad()) continue;
         Eigen::Vector3f w_pos;
         cv::cv2eigen(pt->GetWorldPos(), w_pos);
+        // 坐标投影到当前坐标系下，并进行像素化
         Eigen::Vector3f c_pos = T_c_w_ * w_pos;  // 当前相机坐标系下
         cv::Mat1f c_pos_mat;
         cv::eigen2cv(c_pos, c_pos_mat);
@@ -113,7 +123,12 @@ std::vector<std::vector<Eigen::Vector3f>> zxm::MSLAM::getCurrentBuildings() {
             slam_system_->mpTracker->getK() * c_pos_mat;  // 其次像素坐标
         cv::Point2f uv(h_uv[0][0] / h_uv[2][0], h_uv[1][0] / h_uv[2][0]);
         auto& rect = slam_system_->mpTracker->tracking_rects_[r];
-        if (rect.contains(uv)) points[r].emplace_back(c_pos);
+        if (rect.contains(uv)) {
+          if (use_real_coordinate)
+            points[r].emplace_back(w_pos);
+          else
+            points[r].emplace_back(c_pos);
+        }
       }
     }
   }

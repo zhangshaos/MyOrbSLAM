@@ -28,14 +28,20 @@ class MSLAM : public ISLAM {
   // Test whether clould points changed.
   virtual bool isCloudPointsChanged() override;
 
+    // 获取内参矩阵
+  virtual Eigen::Matrix3f getIntrinsicK() override;
+
+  // 获取 Tcw
+  virtual Eigen::Isometry3f getOutwardTcw() override;
+
   // Get all buildings' clould points.
   // Return map <building id>-<building cloud points>.
   virtual std::map<int, std::vector<Eigen::Vector3f>> getAllBuildings(
       bool use_real_coordinate = true) override;
 
   // Get CURRENT buildings' points.
-  virtual std::vector<std::vector<Eigen::Vector3f>> getCurrentBuildings()
-      override;
+  virtual std::vector<std::vector<Eigen::Vector3f>> getCurrentBuildings(
+      bool use_real_coordinate) override;
 
   // Override with mask to decreasing the num of keypoints.
   // And this func will create keypoint pngs.

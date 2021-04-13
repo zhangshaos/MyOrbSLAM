@@ -65,14 +65,22 @@ class ISLAM {
 
   // Get all building's clould points of CURRENT frame(masked by
   // track(...rects))
-  virtual std::vector<std::vector<Eigen::Vector3f>> getCurrentBuildings() = 0;
+  virtual std::vector<std::vector<Eigen::Vector3f>> getCurrentBuildings(
+      bool use_real_coordinate = false) = 0;
 
   // Override with mask to decreasing the num of keypoints.
   // And this func will create keypoint pngs.
   // `color` 从低到高分别是 B G R，即 R 在最高位 [2] 上
   // `toshow` 返回展示的图片
   virtual std::vector<std::vector<Eigen::Vector3f>> getCurrentBuildings(
-    cv::Mat mask, const std::set<std::array<unsigned char, 3>>& colors, cv::Mat &toshow) = 0;
+      cv::Mat mask, const std::set<std::array<unsigned char, 3>>& colors,
+      cv::Mat& toshow) = 0;
+
+  // 获取内参矩阵
+  virtual Eigen::Matrix3f getIntrinsicK() = 0;
+
+  // 获取 Tcw
+  virtual Eigen::Isometry3f getOutwardTcw() = 0;
 
   // Shut down the slam system.
   virtual void shutDown() = 0;
